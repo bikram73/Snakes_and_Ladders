@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { sound } from '../utils/audio';
+import { gameApi } from '../utils/apiClient';
+import { RoomState } from '../types/game';
 import { Users, Copy, Check, Play, Crown, ArrowLeft, Share2, Sparkles, Loader2 } from 'lucide-react';
 
 interface RemoteRoomLobbyProps {
@@ -8,23 +10,6 @@ interface RemoteRoomLobbyProps {
   isHost: boolean;
   onStartMatch: () => void;
   onLeaveRoom: () => void;
-}
-
-export interface RoomState {
-  code: string;
-  host_id: number;
-  status: 'lobby' | 'playing' | 'ended';
-  max_players: number;
-  players: Array<{
-    id: number;
-    name: string;
-    position: number;
-    is_computer: boolean;
-    color: string;
-    avatar: string;
-  }>;
-  current_player: number;
-  game_over: boolean;
 }
 
 export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
@@ -44,10 +29,8 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
 
     const poll = async () => {
       try {
-        const res = await fetch(`/api/room/state?room_code=${roomCode}&player_id=${playerId}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.success && isMounted) {
+        const data = await gameApi.getRoomState(roomCode, playerId);
+        if (data.success && data.room && isMounted) {
           setRoom(data.room);
           if (data.room.status === 'playing') {
             onStartMatch();
@@ -80,12 +63,7 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
   const handleHostStart = async () => {
     sound.playPowerup();
     try {
-      const res = await fetch('/api/room/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ room_code: roomCode, player_id: playerId }),
-      });
-      const data = await res.json();
+      const data = await gameApi.startRoom(roomCode, playerId);
       if (data.success) {
         onStartMatch();
       } else {

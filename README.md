@@ -1,44 +1,57 @@
-# 🐍 Snake & Ladder — Interactive Full-Stack Board Game
+# 🐍 Snake & Ladder — Interactive Board Game
 
-Modern, responsive and visually engaging Snake & Ladder game built using Python, Flask, HTML5, CSS3, and JavaScript / React with REST APIs and animated 3D dice.
+Modern, responsive and visually engaging Snake & Ladder game built with React, TypeScript, Tailwind CSS, animated 3D dice, and full Netlify deployment support.
 
-## Features
+## 🚀 Netlify Deployment
 
-- **Player vs Computer (PvC)**: Intelligent rule-based computer bot with turn deliberation.
-- **Two Players Mode**: Local pass-and-play multiplayer on the same device.
-- **Four Players Mode**: 4-player multiplayer on a single 100-cell board.
-- **Animated 3D Dice**: Interactive rolling cube with faces ⚀ to ⚅, spacebar and click triggers.
+This repository is pre-configured for **1-click Netlify deployment**!
+
+### Method 1: Deploy with Netlify Git Integration (Recommended)
+1. Push your repository to **GitHub / GitLab / Bitbucket**.
+2. Log in to [Netlify](https://app.netlify.com/).
+3. Click **"Add new site"** ➔ **"Import an existing project"**.
+4. Select your repository.
+5. Netlify will automatically detect `netlify.toml`:
+   - **Build command**: `npm run build`
+   - **Publish directory**: `dist`
+6. Click **"Deploy site"**!
+
+### Method 2: Manual Netlify Drag & Drop
+1. Run `npm run build` locally to generate the `dist` folder.
+2. Drag and drop the `dist/` folder into the Netlify Dashboard Deploy section.
+
+---
+
+## 🎮 Features
+
+- **Player vs Computer (PvC)**: Choose 1, 2, or 3 smart computer bots (C2, C3, C4) with automated turns.
+- **Local Multiplayer**: Pass & Play on the same device for 2, 3, or 4 players.
+- **Remote Online Multiplayer**: Host creates a room with custom capacity (2, 3, or 4 players) and shares a 5-letter room code or link (`?room=CODE`). Guests join in real time.
+- **Interactive 3D Rolling Dice**: Realistic CSS 3D cube with keyboard spacebar & click triggers.
 - **Dynamic Board Mechanics**:
-  - 10×10 traditional serpentine numbered board (1 to 100).
-  - 10 Snakes with curved SVG bodies, fangs, and slide-down animations (98→78, 95→75, 92→88, 89→68, 74→53, 64→44, 62→22, 49→11, 47→26, 16→6).
-  - 9 Ladders with 3D perspective rungs and climbing chimes (3→22, 8→30, 15→44, 21→42, 28→76, 36→57, 51→67, 71→92, 80→99).
+  - 10×10 serpentine numbered board (1 to 100).
+  - 10 Snakes with smooth curved SVG bodies and slide-down animations.
+  - 9 Ladders with climbing chimes.
   - Clustered non-overlapping token positioning.
   - Position 0 Start bench outside the board.
-- **Rules & Options**:
-  - Exact 100 finish rule with overshoot feedback.
-  - Optional Extra turn on 6.
-  - Animation speed controls (Slow / Normal / Fast).
-  - Synthesized sound effects with mute toggle.
-- **Game Status & History**: Live turn announcements, dice roll feedback, and recent move log panel.
-- **Winner Celebration**: Grand champion podium with confetti cannon fireworks.
+- **House Rules & Settings**:
+  - Exact 100 to win toggle.
+  - Extra turn on rolling a 6.
+  - Pawn animation speed (Slow / Normal / Fast).
+  - Web Audio sound effects with mute toggle.
+- **Victory Celebration**: Grand champion podium with fireworks and fanfare.
 
-## Tech Stack
+---
 
-- **Backend**: Python 3.10+, Flask, REST API
-- **Frontend**: HTML5, CSS3, TypeScript / React, Tailwind CSS
-- **Testing**: Python unittest / pytest
-
-## Run Locally
+## 🛠️ Run Locally
 
 ```bash
-# Python Backend
-pip install -r requirements.txt
-python app.py
-
-# Run Unit Tests
-python3 -m unittest discover tests
-
-# Full-Stack Web App
+# Install dependencies
 npm install
+
+# Start development server
 npm run dev
+
+# Build production bundle
+npm run build
 ```

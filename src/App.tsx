@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GameRules, MoveLog, Player, RollApiResponse, NewGameApiResponse, RoomState } from './types/game';
+import { gameApi } from './utils/apiClient';
 import { GameBoard } from './components/GameBoard';
 import { Dice3D } from './components/Dice3D';
 import { LandingPage } from './components/LandingPage';
@@ -114,20 +115,13 @@ export default function App() {
           : `${configuredPlayers.length} Players Pass & Play`;
       setActiveModeTitle(modeLabel);
 
-      const res = await fetch('/api/game/new', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode,
-          players: configuredPlayers,
-          exact_finish: customRules.exact100,
-          extra_turn_on_six: customRules.extraTurnOnSix,
-        }),
-      });
+      const data: NewGameApiResponse = await gameApi.newGame(
+        mode,
+        configuredPlayers,
+        customRules.exact100,
+        customRules.extraTurnOnSix
+      );
 
-      if (!res.ok) throw new Error('Failed to create new game');
-
-      const data: NewGameApiResponse = await res.json();
       setGameId(data.game_id);
       setPlayers(data.state.players);
       setCurrentPlayerId(data.state.current_player);
@@ -163,9 +157,7 @@ export default function App() {
   const handleStartRemoteMatch = useCallback(async () => {
     if (!roomCode) return;
     try {
-      const res = await fetch(`/api/room/state?room_code=${roomCode}&player_id=${myPlayerId}`);
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await gameApi.getRoomState(roomCode, myPlayerId ?? undefined);
       if (data.success && data.room) {
         const room: RoomState = data.room;
         setPlayers(room.players);
@@ -196,15 +188,10 @@ export default function App() {
 
   // Restart active game match
   const handleRestartMatch = useCallback(async () => {
-    if (isRemoteMatch && roomCode) {
+    if (isRemoteMatch && roomCode && myPlayerId !== null) {
       try {
-        const res = await fetch('/api/room/restart', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ room_code: roomCode, player_id: myPlayerId }),
-        });
-        const data = await res.json();
-        if (data.success) {
+        const data = await gameApi.restartRoom(roomCode, myPlayerId);
+        if (data.success && data.room) {
           setPlayers(data.room.players);
           setCurrentPlayerId(0);
           setGameOver(false);
@@ -226,15 +213,7 @@ export default function App() {
 
     if (!gameId) return;
     try {
-      const res = await fetch('/api/game/restart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ game_id: gameId }),
-      });
-
-      if (!res.ok) throw new Error('Failed to restart game');
-      const data = await res.json();
-
+      const data = await gameApi.restartGame(gameId);
       setPlayers(data.state.players);
       setCurrentPlayerId(data.state.current_player);
       setGameOver(false);
@@ -249,7 +228,7 @@ export default function App() {
       setActiveEventBanner(null);
 
       const firstPlayer = data.state.players[0];
-      setStatusMessage(`${firstPlayer.name}'s Turn. Roll the dice to start!`);
+      setStatusMessage(`${firstPlayer?.name || 'Player 1'}'s Turn. Roll the dice to start!`);
     } catch (err) {
       console.error('Error restarting game:', err);
     }
@@ -393,17 +372,8 @@ export default function App() {
     await delay(700);
 
     try {
-      if (isRemoteMatch && roomCode) {
-        const res = await fetch('/api/room/roll', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            room_code: roomCode,
-            player_id: myPlayerId,
-          }),
-        });
-
-        const data: RollApiResponse = await res.json();
+      if (isRemoteMatch && roomCode && myPlayerId !== null) {
+        const data: RollApiResponse = await gameApi.rollRoomDice(roomCode, myPlayerId);
         if (!data.success) {
           setIsRolling(false);
           if (data.error) setStatusMessage(data.error);
@@ -433,17 +403,8 @@ export default function App() {
           data.game_over,
           data.winner
         );
-      } else {
-        const res = await fetch('/api/game/roll', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            game_id: gameId,
-            player_id: actingPlayerId,
-          }),
-        });
-
-        const data: RollApiResponse = await res.json();
+      } else if (gameId) {
+        const data: RollApiResponse = await gameApi.rollDice(gameId, actingPlayerId);
         if (!data.success) {
           setIsRolling(false);
           if (data.error) setStatusMessage(data.error);
@@ -496,9 +457,7 @@ export default function App() {
     let isMounted = true;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/room/state?room_code=${roomCode}&player_id=${myPlayerId}`);
-        if (!res.ok) return;
-        const data = await res.json();
+        const data = await gameApi.getRoomState(roomCode, myPlayerId ?? undefined);
         if (!isMounted || !data.success || !data.room) return;
 
         const room: RoomState = data.room;

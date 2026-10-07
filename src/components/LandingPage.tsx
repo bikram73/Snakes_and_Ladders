@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GameRules } from '../types/game';
 import { sound } from '../utils/audio';
+import { gameApi } from '../utils/apiClient';
 import { AnimatedBoardHero } from './AnimatedBoardHero';
 import {
   Bot,
@@ -151,18 +152,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     setIsCreatingRoom(true);
     setRemoteError(null);
     try {
-      const res = await fetch('/api/room/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host_name: hostPlayerName.trim() || 'Host',
-          max_players: remoteMaxPlayers,
-          exact_finish: rules.exact100,
-          extra_turn_on_six: rules.extraTurnOnSix,
-        }),
-      });
+      const data = await gameApi.createRoom(
+        hostPlayerName.trim() || 'Host',
+        remoteMaxPlayers,
+        rules.exact100,
+        rules.extraTurnOnSix
+      );
 
-      const data = await res.json();
       setIsCreatingRoom(false);
       if (data.success) {
         onOpenRemoteLobby(data.room_code, data.player_id, true);
@@ -171,7 +167,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       }
     } catch (err) {
       setIsCreatingRoom(false);
-      setRemoteError('Failed to connect to server to create room');
+      setRemoteError('Failed to create room');
     }
   };
 
@@ -185,16 +181,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     setIsCreatingRoom(true);
     setRemoteError(null);
     try {
-      const res = await fetch('/api/room/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          room_code: joinRoomCode.trim().toUpperCase(),
-          player_name: joinPlayerName.trim() || 'Guest',
-        }),
-      });
+      const data = await gameApi.joinRoom(
+        joinRoomCode.trim().toUpperCase(),
+        joinPlayerName.trim() || 'Guest'
+      );
 
-      const data = await res.json();
       setIsCreatingRoom(false);
       if (data.success) {
         onOpenRemoteLobby(data.room_code, data.player_id, false);
@@ -203,7 +194,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       }
     } catch (err) {
       setIsCreatingRoom(false);
-      setRemoteError('Failed to connect to server to join room');
+      setRemoteError('Failed to join room');
     }
   };
 
