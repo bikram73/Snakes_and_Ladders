@@ -3,11 +3,18 @@ export interface Point {
   y: number;
 }
 
-export function getTileCoordinates(tileNumber: number, boardSize: number, totalDimension: number = 1000): {
-  x: number; // center x
-  y: number; // center y
+/**
+ * Returns exact cell center and coordinates for 1-100 tile numbers.
+ * Row 1 (bottom): 1 (left) to 10 (right)
+ * Row 2: 20 (left) to 11 (right)
+ * ...
+ * Row 10 (top): 100 (left) to 91 (right)
+ */
+export function getTileCoordinates(tileNumber: number, boardSize: number = 10, totalDimension: number = 1000): {
+  x: number;
+  y: number;
   col: number;
-  row: number; // row from top (0 is top row)
+  rowFromTop: number;
   rowFromBottom: number;
   cellWidth: number;
   cellHeight: number;
@@ -27,7 +34,7 @@ export function getTileCoordinates(tileNumber: number, boardSize: number, totalD
     x,
     y,
     col,
-    row: rowFromTop,
+    rowFromTop,
     rowFromBottom,
     cellWidth,
     cellHeight,
@@ -46,7 +53,7 @@ export interface LadderRenderData {
 export function computeLadderGeometry(
   bottomTile: number,
   topTile: number,
-  boardSize: number,
+  boardSize: number = 10,
   totalDimension: number = 1000
 ): LadderRenderData {
   const start = getTileCoordinates(bottomTile, boardSize, totalDimension);
@@ -58,8 +65,7 @@ export function computeLadderGeometry(
   const angle = Math.atan2(dy, dx);
   const angleDeg = (angle * 180) / Math.PI;
 
-  // Rail half-width perpendicular to direction
-  const ladderHalfWidth = totalDimension * 0.016; // ~16px
+  const ladderHalfWidth = totalDimension * 0.018; // ~18px
   const perpX = -Math.sin(angle) * ladderHalfWidth;
   const perpY = Math.cos(angle) * ladderHalfWidth;
 
@@ -68,8 +74,7 @@ export function computeLadderGeometry(
   const rail2Start = { x: start.x - perpX, y: start.y - perpY };
   const rail2End = { x: end.x - perpX, y: end.y - perpY };
 
-  // Calculate equidistant rungs
-  const rungSpacing = totalDimension * 0.04; // ~40px per rung
+  const rungSpacing = totalDimension * 0.045; // ~45px per rung
   const rungCount = Math.max(3, Math.floor(length / rungSpacing));
   const rungs: { start: Point; end: Point }[] = [];
 
@@ -105,7 +110,7 @@ export interface SnakeRenderData {
 export function computeSnakeGeometry(
   headTile: number,
   tailTile: number,
-  boardSize: number,
+  boardSize: number = 10,
   totalDimension: number = 1000
 ): SnakeRenderData {
   const head = getTileCoordinates(headTile, boardSize, totalDimension);
@@ -116,15 +121,12 @@ export function computeSnakeGeometry(
   const dist = Math.hypot(dx, dy);
   const baseAngle = Math.atan2(dy, dx);
 
-  // Derive pseudo-random deterministic wave offsets
   const seed = (headTile * 37 + tailTile * 19) % 100;
-  const waveAmplitude = Math.min(totalDimension * 0.06, dist * 0.22) * (seed % 2 === 0 ? 1 : -1);
+  const waveAmplitude = Math.min(totalDimension * 0.065, dist * 0.24) * (seed % 2 === 0 ? 1 : -1);
 
-  // Perpendicular vector
   const perpX = -Math.sin(baseAngle);
   const perpY = Math.cos(baseAngle);
 
-  // Intermediate bezier control points for a smooth serpentine S-curve
   const cp1 = {
     x: head.x + dx * 0.33 + perpX * waveAmplitude,
     y: head.y + dy * 0.33 + perpY * waveAmplitude,
@@ -136,7 +138,6 @@ export function computeSnakeGeometry(
 
   const pathD = `M ${head.x.toFixed(1)} ${head.y.toFixed(1)} C ${cp1.x.toFixed(1)} ${cp1.y.toFixed(1)}, ${cp2.x.toFixed(1)} ${cp2.y.toFixed(1)}, ${tail.x.toFixed(1)} ${tail.y.toFixed(1)}`;
 
-  // Head angle tangent
   const headTangentAngle = Math.atan2(cp1.y - head.y, cp1.x - head.x);
   const headAngleDeg = (headTangentAngle * 180) / Math.PI;
 

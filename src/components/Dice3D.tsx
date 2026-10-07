@@ -6,9 +6,6 @@ interface Dice3DProps {
   isRolling: boolean;
   onRoll: () => void;
   disabled?: boolean;
-  secondaryValue?: number;
-  showDouble?: boolean;
-  theme?: string;
 }
 
 export const Dice3D: React.FC<Dice3DProps> = ({
@@ -16,14 +13,10 @@ export const Dice3D: React.FC<Dice3DProps> = ({
   isRolling,
   onRoll,
   disabled = false,
-  secondaryValue,
-  showDouble = false,
 }) => {
-  // Spacebar trigger
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !disabled && !isRolling) {
-        // Prevent page scroll
         e.preventDefault();
         sound.playClick();
         onRoll();
@@ -33,21 +26,22 @@ export const Dice3D: React.FC<Dice3DProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [disabled, isRolling, onRoll]);
 
-  const renderSingleDie = (val: number, isSecondary = false) => {
-    const faceClass = `dice-show-${Math.max(1, Math.min(6, val || 1))}`;
+  const faceClass = `dice-show-${Math.max(1, Math.min(6, value || 1))}`;
 
-    return (
-      <div className="dice-container p-2 select-none">
+  return (
+    <div className="flex flex-col items-center gap-3 select-none w-full">
+      {/* 3D Rolling Cube */}
+      <div className="dice-container p-2">
         <div
           className={`dice-cube ${isRolling ? 'dice-rolling-anim' : faceClass}`}
           style={{ transformOrigin: 'center center' }}
         >
-          {/* Face 1 */}
+          {/* Face 1: ⚀ */}
           <div className="dice-face dice-face-1 bg-gradient-to-br from-white via-slate-50 to-slate-200 border border-slate-300 shadow-md">
-            <div className="w-3.5 h-3.5 bg-rose-600 rounded-full shadow-inner ring-1 ring-rose-700/50" />
+            <div className="w-4 h-4 bg-rose-600 rounded-full shadow-inner ring-1 ring-rose-700/50" />
           </div>
 
-          {/* Face 2 */}
+          {/* Face 2: ⚁ */}
           <div className="dice-face dice-face-2 bg-gradient-to-br from-white via-slate-50 to-slate-200 border border-slate-300 shadow-md">
             <div className="flex flex-col justify-between w-10 h-10 p-1">
               <div className="w-2.5 h-2.5 bg-slate-800 rounded-full shadow-inner self-start" />
@@ -55,7 +49,7 @@ export const Dice3D: React.FC<Dice3DProps> = ({
             </div>
           </div>
 
-          {/* Face 3 */}
+          {/* Face 3: ⚂ */}
           <div className="dice-face dice-face-3 bg-gradient-to-br from-white via-slate-50 to-slate-200 border border-slate-300 shadow-md">
             <div className="flex justify-between w-10 h-10 p-1">
               <div className="w-2.5 h-2.5 bg-slate-800 rounded-full shadow-inner self-start" />
@@ -64,7 +58,7 @@ export const Dice3D: React.FC<Dice3DProps> = ({
             </div>
           </div>
 
-          {/* Face 4 */}
+          {/* Face 4: ⚃ */}
           <div className="dice-face dice-face-4 bg-gradient-to-br from-white via-slate-50 to-slate-200 border border-slate-300 shadow-md">
             <div className="flex flex-col justify-between w-10 h-10 p-1">
               <div className="flex justify-between">
@@ -78,7 +72,7 @@ export const Dice3D: React.FC<Dice3DProps> = ({
             </div>
           </div>
 
-          {/* Face 5 */}
+          {/* Face 5: ⚄ */}
           <div className="dice-face dice-face-5 bg-gradient-to-br from-white via-slate-50 to-slate-200 border border-slate-300 shadow-md">
             <div className="flex flex-col justify-between w-10 h-10 p-1 relative">
               <div className="flex justify-between">
@@ -95,7 +89,7 @@ export const Dice3D: React.FC<Dice3DProps> = ({
             </div>
           </div>
 
-          {/* Face 6 */}
+          {/* Face 6: ⚅ */}
           <div className="dice-face dice-face-6 bg-gradient-to-br from-white via-slate-50 to-slate-200 border border-slate-300 shadow-md">
             <div className="flex justify-between w-10 h-10 p-1">
               <div className="flex flex-col justify-between">
@@ -112,13 +106,8 @@ export const Dice3D: React.FC<Dice3DProps> = ({
           </div>
         </div>
       </div>
-    );
-  };
 
-  const total = showDouble && secondaryValue ? value + secondaryValue : value;
-
-  return (
-    <div className="flex flex-col items-center gap-3">
+      {/* Large Interactive Action Button */}
       <button
         onClick={() => {
           if (!disabled && !isRolling) {
@@ -127,31 +116,20 @@ export const Dice3D: React.FC<Dice3DProps> = ({
           }
         }}
         disabled={disabled || isRolling}
-        className={`group relative flex items-center justify-center gap-4 px-6 py-4 rounded-2xl transition-all duration-200 cursor-pointer ${
+        aria-label="Roll dice"
+        className={`w-full max-w-xs py-3.5 px-6 rounded-2xl font-black text-base uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-3 shadow-lg ${
           disabled
-            ? 'opacity-60 cursor-not-allowed bg-slate-900/60 border border-slate-800'
-            : 'bg-gradient-to-b from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 active:scale-95 border-b-4 border-amber-700 hover:border-amber-600'
+            ? 'opacity-60 cursor-not-allowed bg-slate-800 text-slate-400 border border-slate-700'
+            : 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 shadow-amber-500/25 active:scale-95 border-b-4 border-amber-600'
         }`}
-        title={disabled ? 'Waiting for turn...' : 'Click or press Spacebar to roll!'}
       >
-        <div className="flex items-center gap-3">
-          {renderSingleDie(value)}
-          {showDouble && secondaryValue && renderSingleDie(secondaryValue, true)}
-        </div>
-
-        <div className="flex flex-col text-left pl-2">
-          <span className="text-xs uppercase tracking-wider font-extrabold opacity-75">
-            {isRolling ? 'Rolling...' : disabled ? 'Turn in progress' : 'Tap or Spacebar'}
-          </span>
-          <span className="text-xl font-black tracking-tight">
-            {isRolling ? '...' : `Roll: ${total || '?'}`}
-          </span>
-        </div>
+        <span>🎲</span>
+        <span>{isRolling ? 'Rolling...' : 'ROLL DICE'}</span>
       </button>
 
       {!disabled && !isRolling && (
-        <span className="text-xs text-slate-400 font-medium animate-pulse">
-          Press [Space] to Roll
+        <span className="text-[11px] text-slate-400 font-medium animate-pulse">
+          Click button or press [Space] to roll
         </span>
       )}
     </div>

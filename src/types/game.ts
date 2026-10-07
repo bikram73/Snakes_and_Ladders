@@ -1,95 +1,72 @@
-export type GameMode = 'classic' | 'blitz' | 'obstacle' | 'custom';
-
-export type BoardTheme = 'vintage' | 'neon' | 'jungle' | 'candy';
-
-export type SpecialTileType = 'speed_boost' | 'spring' | 'banana' | 'freeze' | 'mystery_portal';
-
-export interface SpecialTileInfo {
-  type: SpecialTileType;
-  title: string;
-  description: string;
-  icon: string;
-  color: string;
-  effectDelta?: number; // e.g. +3, -3
-}
-
-export interface Snake {
-  id: string;
-  head: number;
-  tail: number;
-  name?: string;
-}
-
-export interface Ladder {
-  id: string;
-  bottom: number;
-  top: number;
-  name?: string;
-}
-
-export interface BoardConfig {
-  id: string;
-  name: string;
-  size: number; // 10 for 10x10=100, 7 for 7x7=49
-  snakes: Snake[];
-  ladders: Ladder[];
-  specialTiles: Record<number, SpecialTileType>;
-}
-
-export type BotPersonality = 'balanced' | 'speedy' | 'cautious' | 'dramatic';
-
-export interface PlayerStats {
-  rolls: number;
-  snakesBitten: number;
-  laddersClimbed: number;
-  sixesCount: number;
-  tilesTraveled: number;
-  specialTilesHit: number;
-}
+export type GameMode = 'pvc' | 'two' | 'four';
 
 export interface Player {
-  id: string;
+  id: number;
   name: string;
-  isAi: boolean;
-  botPersonality?: BotPersonality;
-  avatar: string; // Emoji or token symbol
-  color: string; // Tailwind color or Hex
-  bgGradient: string;
-  ringColor: string;
-  position: number; // 0 means not yet on board or at start 1
-  consecutiveSixes: number;
-  isFrozen: boolean;
-  turnsPlayed: number;
-  stats: PlayerStats;
+  position: number; // 0 = start outside board, 1..100
+  is_computer: boolean;
+  color: string; // 'red' | 'blue' | 'green' | 'yellow'
+  avatar: string; // '🔴' | '🔵' | '🟢' | '🟡'
 }
 
 export interface GameRules {
-  exact100: boolean; // Must land exactly on the finish tile
-  rollSixAgain: boolean; // Rolling a 6 yields another roll
-  threeSixesPenalty: boolean; // Rolling 3 consecutive sixes cancels turn/penalty
-  allowKnockout: boolean; // Landing on someone bumps them back
-  doubleDice: boolean; // Roll 2 dice instead of 1
-  requireSixToStart: boolean; // Must roll a 6 to enter tile 1 (optional classic rule)
-  botSpeed: 'fast' | 'normal' | 'slow';
+  exact100: boolean; // Exact 100 rule
+  extraTurnOnSix: boolean; // Six gives another turn
+  soundEnabled: boolean;
+  animationSpeed: 'slow' | 'normal' | 'fast'; // Slow: 250ms, Normal: 150ms, Fast: 80ms
 }
 
 export interface MoveLog {
   id: string;
-  timestamp: Date;
-  playerId: string;
+  playerId: number;
   playerName: string;
   playerAvatar: string;
-  diceRoll: number[];
-  fromPos: number;
-  toPos: number;
-  actionType: 'normal' | 'ladder' | 'snake' | 'special' | 'knockout' | 'win' | 'frozen' | 'bounce';
+  dice: number;
+  oldPosition: number;
+  landingPosition: number;
+  finalPosition: number;
+  event: 'normal' | 'ladder' | 'snake' | 'overshoot' | 'winner';
   message: string;
+  extraTurn: boolean;
 }
 
-export interface GameSettings {
-  soundEnabled: boolean;
-  volume: number;
-  musicEnabled: boolean;
-  theme: BoardTheme;
-  autoBotTurn: boolean;
+export interface RollApiResponse {
+  success: boolean;
+  dice: number;
+  player_id: number;
+  player_name: string;
+  old_position: number;
+  landing_position: number;
+  final_position: number;
+  event: 'normal' | 'ladder' | 'snake' | 'overshoot' | 'winner';
+  message: string;
+  next_player: number;
+  next_player_name: string;
+  is_computer_turn: boolean;
+  extra_turn: boolean;
+  game_over: boolean;
+  winner: Player | null;
+  players: Player[];
+  error?: string;
+}
+
+export interface NewGameApiResponse {
+  success: boolean;
+  game_id: string;
+  current_player: number;
+  state: {
+    game_id: string;
+    mode: GameMode;
+    players: Player[];
+    current_player: number;
+    game_over: boolean;
+    winner: Player | null;
+    last_dice: number | null;
+    rules: {
+      board_size: number;
+      exact_finish: boolean;
+      extra_turn_on_six: boolean;
+    };
+    move_history: any[];
+  };
 }
