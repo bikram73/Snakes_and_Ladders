@@ -44,30 +44,15 @@ class GameEngine:
             ("yellow", "🟡")
         ]
 
-        if not players_data:
-            if self.mode == "pvc":
-                players_data = [
-                    {"name": "Player 1", "is_computer": False},
-                    {"name": "Computer", "is_computer": True}
-                ]
-            elif self.mode == "four":
-                players_data = [
-                    {"name": "Player 1", "is_computer": False},
-                    {"name": "Player 2", "is_computer": False},
-                    {"name": "Player 3", "is_computer": False},
-                    {"name": "Player 4", "is_computer": False}
-                ]
-            else: # two players
-                players_data = [
-                    {"name": "Player 1", "is_computer": False},
-                    {"name": "Player 2", "is_computer": False}
-                ]
+        if not players_data or len(players_data) < 2:
+            players_data = [
+                {"name": "Player 1", "is_computer": False},
+                {"name": "Computer", "is_computer": True}
+            ]
 
         for i, p_info in enumerate(players_data):
             color, avatar = color_map[i % len(color_map)]
-            is_comp = p_info.get("is_computer", False)
-            if self.mode == "pvc" and i == 1:
-                is_comp = True
+            is_comp = bool(p_info.get("is_computer", False))
             
             player = Player(
                 id=i,

@@ -48,7 +48,8 @@ interface PlayerState {
 
 interface GameSession {
   game_id: string;
-  mode: 'pvc' | 'two' | 'four';
+  mode: 'pvc' | 'multiplayer';
+  sub_mode?: string;
   players: PlayerState[];
   current_player: number;
   game_over: boolean;
@@ -74,8 +75,11 @@ interface GameSession {
 
 const activeGames = new Map<string, GameSession>();
 
-// Initialize default players
-function createPlayers(mode: 'pvc' | 'two' | 'four', customPlayers?: Array<{ name: string; is_computer?: boolean }>): PlayerState[] {
+// Initialize players supporting PvC (1-3 bots) and Multiplayer (2-4 players)
+function createPlayers(
+  mode: string,
+  customPlayers?: Array<{ name: string; is_computer?: boolean; avatar?: string; color?: string }>
+): PlayerState[] {
   const colorMap = [
     { color: 'red', avatar: '🔴' },
     { color: 'blue', avatar: '🔵' },
@@ -86,43 +90,37 @@ function createPlayers(mode: 'pvc' | 'two' | 'four', customPlayers?: Array<{ nam
   if (customPlayers && customPlayers.length >= 2) {
     return customPlayers.map((p, i) => ({
       id: i,
-      name: p.name || `Player ${i + 1}`,
+      name: p.name || (p.is_computer ? `Computer ${i}` : `Player ${i + 1}`),
       position: 0,
       is_computer: Boolean(p.is_computer),
-      color: colorMap[i % colorMap.length].color,
-      avatar: colorMap[i % colorMap.length].avatar,
+      color: p.color || colorMap[i % colorMap.length].color,
+      avatar: p.avatar || colorMap[i % colorMap.length].avatar,
     }));
   }
 
-  if (mode === 'pvc') {
-    return [
-      { id: 0, name: 'Player 1', position: 0, is_computer: false, color: 'red', avatar: '🔴' },
-      { id: 1, name: 'Computer', position: 0, is_computer: true, color: 'blue', avatar: '🔵' },
-    ];
-  } else if (mode === 'four') {
-    return [
-      { id: 0, name: 'Player 1', position: 0, is_computer: false, color: 'red', avatar: '🔴' },
-      { id: 1, name: 'Player 2', position: 0, is_computer: false, color: 'blue', avatar: '🔵' },
-      { id: 2, name: 'Player 3', position: 0, is_computer: false, color: 'green', avatar: '🟢' },
-      { id: 3, name: 'Player 4', position: 0, is_computer: false, color: 'yellow', avatar: '🟡' },
-    ];
-  } else {
-    return [
-      { id: 0, name: 'Player 1', position: 0, is_computer: false, color: 'red', avatar: '🔴' },
-      { id: 1, name: 'Player 2', position: 0, is_computer: false, color: 'blue', avatar: '🔵' },
-    ];
-  }
+  // Default fallback for PvC
+  return [
+    { id: 0, name: 'Player 1', position: 0, is_computer: false, color: 'red', avatar: '🔴' },
+    { id: 1, name: 'Computer', position: 0, is_computer: true, color: 'blue', avatar: '🔵' },
+  ];
 }
 
 // API Routes
 app.post('/api/game/new', (req, res) => {
-  const { mode = 'pvc', players: customPlayers, exact_finish = true, extra_turn_on_six = true } = req.body || {};
+  const {
+    mode = 'pvc',
+    sub_mode,
+    players: customPlayers,
+    exact_finish = true,
+    extra_turn_on_six = true,
+  } = req.body || {};
   const game_id = `game_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
   const players = createPlayers(mode, customPlayers);
   const session: GameSession = {
     game_id,
-    mode,
+    mode: mode === 'multiplayer' ? 'multiplayer' : 'pvc',
+    sub_mode: sub_mode || `${players.length}p`,
     players,
     current_player: 0,
     game_over: false,

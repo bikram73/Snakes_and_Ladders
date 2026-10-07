@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GameMode, GameRules, MoveLog, Player, RollApiResponse, NewGameApiResponse } from './types/game';
+import React, { useState, useEffect, useCallback } from 'react';
+import { GameRules, MoveLog, Player, RollApiResponse, NewGameApiResponse } from './types/game';
 import { GameBoard } from './components/GameBoard';
 import { Dice3D } from './components/Dice3D';
-import { ModeSelectModal } from './components/ModeSelectModal';
+import { LandingPage } from './components/LandingPage';
 import { RulesModal } from './components/RulesModal';
 import { SettingsModal } from './components/SettingsModal';
 import { NewGameConfirmModal } from './components/NewGameConfirmModal';
@@ -22,6 +22,7 @@ import {
   RotateCcw,
   History,
   Trophy,
+  Home,
   Bot,
   User,
   Sparkles,
@@ -35,12 +36,15 @@ const DEFAULT_RULES: GameRules = {
 };
 
 export default function App() {
+  // Current View: 'landing' or 'game'
+  const [currentView, setCurrentView] = useState<'landing' | 'game'>('landing');
+
   // Game session & state
   const [gameId, setGameId] = useState<string | null>(null);
-  const [mode, setMode] = useState<GameMode>('pvc');
+  const [activeModeTitle, setActiveModeTitle] = useState<string>('Player vs Computer');
   const [players, setPlayers] = useState<Player[]>([
     { id: 0, name: 'Player 1', position: 0, is_computer: false, color: 'red', avatar: '🔴' },
-    { id: 1, name: 'Computer', position: 0, is_computer: true, color: 'blue', avatar: '🔵' },
+    { id: 1, name: 'Bot Nova', position: 0, is_computer: true, color: 'blue', avatar: '🔵' },
   ]);
   const [currentPlayerId, setCurrentPlayerId] = useState<number>(0);
   const [gameOver, setGameOver] = useState<boolean>(false);
@@ -58,7 +62,6 @@ export default function App() {
   const [computerThinking, setComputerThinking] = useState<boolean>(false);
 
   // Modals & Panels
-  const [showModeModal, setShowModeModal] = useState<boolean>(false);
   const [showRulesModal, setShowRulesModal] = useState<boolean>(false);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState<boolean>(false);
@@ -76,22 +79,28 @@ export default function App() {
     return 140; // normal
   }, [rules.animationSpeed]);
 
-  // Initialize a new game session via backend API
-  const initNewGame = useCallback(async (selectedMode: GameMode, playerNames?: string[]) => {
+  // Start game from Landing Page
+  const handleStartFromLanding = useCallback(async (
+    mode: 'pvc' | 'multiplayer',
+    configuredPlayers: Array<{ name: string; is_computer: boolean; avatar: string; color: string }>,
+    customRules: GameRules
+  ) => {
     try {
-      const customPlayers = playerNames?.map((name, i) => ({
-        name,
-        is_computer: selectedMode === 'pvc' && i === 1,
-      }));
+      setRules(customRules);
+      const modeLabel =
+        mode === 'pvc'
+          ? `Player 1 vs ${configuredPlayers.length - 1} Bot${configuredPlayers.length > 2 ? 's' : ''}`
+          : `${configuredPlayers.length} Players Pass & Play`;
+      setActiveModeTitle(modeLabel);
 
       const res = await fetch('/api/game/new', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mode: selectedMode,
-          players: customPlayers,
-          exact_finish: rules.exact100,
-          extra_turn_on_six: rules.extraTurnOnSix,
+          mode,
+          players: configuredPlayers,
+          exact_finish: customRules.exact100,
+          extra_turn_on_six: customRules.extraTurnOnSix,
         }),
       });
 
@@ -99,7 +108,6 @@ export default function App() {
 
       const data: NewGameApiResponse = await res.json();
       setGameId(data.game_id);
-      setMode(selectedMode);
       setPlayers(data.state.players);
       setCurrentPlayerId(data.state.current_player);
       setGameOver(false);
@@ -115,18 +123,44 @@ export default function App() {
 
       const firstPlayer = data.state.players[0];
       setStatusMessage(`${firstPlayer.name}'s Turn. Roll the dice to start!`);
-      setShowModeModal(false);
+      setCurrentView('game');
     } catch (err) {
-      console.error('Error creating new game:', err);
+      console.error('Error starting game:', err);
     }
-  }, [rules.exact100, rules.extraTurnOnSix]);
+  }, []);
 
-  // Initial load auto-start game
-  useEffect(() => {
-    if (!gameId) {
-      initNewGame('pvc');
+  // Restart active game match
+  const handleRestartMatch = useCallback(async () => {
+    if (!gameId) return;
+    try {
+      const res = await fetch('/api/game/restart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game_id: gameId }),
+      });
+
+      if (!res.ok) throw new Error('Failed to restart game');
+      const data = await res.json();
+
+      setPlayers(data.state.players);
+      setCurrentPlayerId(data.state.current_player);
+      setGameOver(false);
+      setWinner(null);
+      setLastDice(1);
+      setMoveLogs([]);
+      setSteppingPlayerId(null);
+      setSteppingTile(null);
+      setIsRolling(false);
+      setIsAnimatingMove(false);
+      setComputerThinking(false);
+      setActiveEventBanner(null);
+
+      const firstPlayer = data.state.players[0];
+      setStatusMessage(`${firstPlayer.name}'s Turn. Roll the dice to start!`);
+    } catch (err) {
+      console.error('Error restarting game:', err);
     }
-  }, [gameId, initNewGame]);
+  }, [gameId]);
 
   // Handle rolling dice turn
   const handleRollDice = useCallback(async (forcedPlayerId?: number) => {
@@ -272,13 +306,13 @@ export default function App() {
     getStepSpeedMs,
   ]);
 
-  // AI Computer Turn Effect (Section 23 & 24)
+  // AI Computer Turn Effect
   useEffect(() => {
-    if (gameOver || isRolling || isAnimatingMove || showModeModal || showNewGameConfirm) return;
+    if (currentView !== 'game' || gameOver || isRolling || isAnimatingMove || showNewGameConfirm) return;
 
     if (activePlayer && activePlayer.is_computer) {
       setComputerThinking(true);
-      setStatusMessage(`🤖 Computer is thinking...`);
+      setStatusMessage(`🤖 ${activePlayer.name} is thinking...`);
 
       const timer = setTimeout(() => {
         setComputerThinking(false);
@@ -290,12 +324,12 @@ export default function App() {
       setComputerThinking(false);
     }
   }, [
+    currentView,
     currentPlayerId,
     activePlayer,
     gameOver,
     isRolling,
     isAnimatingMove,
-    showModeModal,
     showNewGameConfirm,
     handleRollDice,
   ]);
@@ -307,11 +341,23 @@ export default function App() {
     setRules((prev) => ({ ...prev, soundEnabled: next }));
   };
 
+  // If on Landing Page, render LandingPage component
+  if (currentView === 'landing') {
+    return (
+      <LandingPage
+        onStartGame={handleStartFromLanding}
+        initialRules={rules}
+        onUpdateRules={setRules}
+      />
+    );
+  }
+
+  // Active Game Board Arena Screen
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950">
-      {/* 11. Header */}
+      {/* Top Game Navigation Header */}
       <header className="w-full max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md sticky top-0 z-30">
-        {/* Brand */}
+        {/* Brand & Mode Tag */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center text-xl shadow-lg shadow-amber-500/20 border border-amber-300">
             🐍
@@ -320,28 +366,40 @@ export default function App() {
             <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5">
               SNAKE & LADDER
             </h1>
-            <span className="text-[11px] text-amber-400 font-bold uppercase tracking-wider block">
-              Classic Board Game
+            <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">
+              {activeModeTitle}
             </span>
           </div>
         </div>
 
         {/* Action Controls */}
         <div className="flex items-center gap-2">
-          {/* New Game */}
+          {/* Return to Main Menu / Landing Page */}
+          <button
+            onClick={() => {
+              sound.playClick();
+              setCurrentView('landing');
+            }}
+            className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-200 hover:text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+            title="Main Menu"
+          >
+            <Home className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Main Menu</span>
+          </button>
+
+          {/* Restart Current Game */}
           <button
             onClick={() => {
               sound.playClick();
               setShowNewGameConfirm(true);
             }}
-            className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-200 hover:text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
-            title="Start New Game"
+            className="p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
+            title="Restart Match"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-            <span>New Game</span>
+            <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
           </button>
 
-          {/* Rules */}
+          {/* Rules Modal */}
           <button
             onClick={() => {
               sound.playClick();
@@ -353,7 +411,7 @@ export default function App() {
             <BookOpen className="w-4 h-4 text-amber-400" />
           </button>
 
-          {/* Settings */}
+          {/* Settings Modal */}
           <button
             onClick={() => {
               sound.playClick();
@@ -369,7 +427,7 @@ export default function App() {
           <button
             onClick={toggleSound}
             className="p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
-            title={rules.soundEnabled ? 'Mute Sound' : 'Unmute Sound'}
+            title={rules.soundEnabled ? 'Mute Audio' : 'Unmute Audio'}
           >
             {rules.soundEnabled ? (
               <Volume2 className="w-4 h-4 text-emerald-400" />
@@ -378,14 +436,14 @@ export default function App() {
             )}
           </button>
 
-          {/* Game Log Drawer Toggle */}
+          {/* Game Log Drawer */}
           <button
             onClick={() => {
               sound.playClick();
               setShowLogDrawer(!showLogDrawer);
             }}
             className="relative p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
-            title="Game Move Log"
+            title="Move History Log"
           >
             <History className="w-4 h-4 text-purple-400" />
             {moveLogs.length > 0 && (
@@ -397,7 +455,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* 12. Main Game Layout */}
+      {/* Main Game Layout */}
       <main className="w-full max-w-6xl mx-auto px-4 py-4 flex-1 flex flex-col lg:flex-row items-center justify-center gap-6">
         {/* Left Column: Game Board */}
         <div className="w-full lg:w-3/5 flex flex-col items-center justify-center">
@@ -421,7 +479,7 @@ export default function App() {
               </div>
             ) : (
               <span className="text-xs text-slate-400 font-medium">
-                Reach square <strong className="text-amber-400">100</strong> to win the game!
+                Reach square <strong className="text-amber-400">100</strong> to conquer the arena!
               </span>
             )}
           </div>
@@ -434,16 +492,16 @@ export default function App() {
           />
         </div>
 
-        {/* Right Column: Player Info, Dice, Game Status */}
+        {/* Right Column: Player Dashboard & Dice Roller */}
         <div className="w-full lg:w-2/5 flex flex-col gap-4 max-w-md">
-          {/* 51. Player Dashboard & Turn Status */}
+          {/* Player Standings & Active Turn Glow */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Trophy className="w-3.5 h-3.5 text-amber-400" /> Player Dashboard
+                <Trophy className="w-3.5 h-3.5 text-amber-400" /> Player Contenders
               </span>
-              <span className="text-[11px] font-bold text-slate-400 uppercase">
-                Mode: {mode === 'pvc' ? 'Player vs Bot' : mode === 'two' ? '2 Players' : '4 Players'}
+              <span className="text-[11px] font-mono text-slate-400 font-bold">
+                {players.length} Players
               </span>
             </div>
 
@@ -497,7 +555,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* 14. Dice UI */}
+          {/* Interactive 3D Dice Component */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col items-center justify-center">
             <Dice3D
               value={lastDice}
@@ -507,7 +565,7 @@ export default function App() {
             />
           </div>
 
-          {/* 15. Game Status Panel */}
+          {/* Game Status Log Box */}
           <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg flex flex-col gap-1.5">
             <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
               GAME STATUS
@@ -526,16 +584,6 @@ export default function App() {
         onToggle={() => setShowLogDrawer(!showLogDrawer)}
       />
 
-      {/* Mode Selection / Start Modal */}
-      {showModeModal && (
-        <ModeSelectModal
-          onStart={(selectedMode, playerNames) => {
-            initNewGame(selectedMode, playerNames);
-          }}
-          onCancel={() => setShowModeModal(false)}
-        />
-      )}
-
       {/* Rules Modal */}
       {showRulesModal && (
         <RulesModal onClose={() => setShowRulesModal(false)} />
@@ -550,26 +598,26 @@ export default function App() {
         />
       )}
 
-      {/* New Game Confirmation Modal */}
+      {/* Restart / New Game Confirm Modal */}
       {showNewGameConfirm && (
         <NewGameConfirmModal
           onConfirm={() => {
             setShowNewGameConfirm(false);
-            setShowModeModal(true);
+            handleRestartMatch();
           }}
           onCancel={() => setShowNewGameConfirm(false)}
         />
       )}
 
-      {/* Winner Celebration Modal */}
+      {/* Victory Celebration Modal */}
       {gameOver && winner && (
         <VictoryModal
           winner={winner}
           onPlayAgain={() => {
-            initNewGame(mode);
+            handleRestartMatch();
           }}
           onMainMenu={() => {
-            setShowModeModal(true);
+            setCurrentView('landing');
           }}
         />
       )}
