@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GameRules } from '../types/game';
 import { sound } from '../utils/audio';
+import { AnimatedBoardHero } from './AnimatedBoardHero';
 import {
   Bot,
   Users,
@@ -166,35 +167,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
       {/* Main Landing Content Container */}
       <main className="w-full max-w-3xl mx-auto px-4 py-6 flex flex-col gap-6">
-        {/* Visual Hero Banner Card */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-850 to-slate-900 border border-amber-500/30 p-6 sm:p-8 shadow-2xl text-center flex flex-col items-center gap-3">
-          {/* Subtle background glow */}
-          <div className="absolute -top-16 -left-16 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-16 -right-16 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-
-          {/* Decorative Board Visual Icon Row */}
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <span className="px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-xs font-bold text-slate-300 flex items-center gap-1.5 shadow-sm">
-              <span>🎯 100 Squares</span>
-            </span>
-            <span className="px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-xs font-bold text-emerald-400 flex items-center gap-1.5 shadow-sm">
-              <span>🪜 9 Ladders</span>
-            </span>
-            <span className="px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-xs font-bold text-rose-400 flex items-center gap-1.5 shadow-sm">
-              <span>🐍 10 Snakes</span>
-            </span>
-            <span className="px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-xs font-bold text-amber-300 flex items-center gap-1.5 shadow-sm">
-              <span>🏆 Exact Finish</span>
-            </span>
-          </div>
-
-          <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-white">
-            Welcome to Snake & Ladder
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-400 max-w-lg leading-relaxed">
-            Roll the dice, ascend ladders to skyrocket ahead, beware of slippery snakes, and race to square 100 to conquer the arena!
-          </p>
-        </div>
+        {/* Animated Live Game Showcase Hero */}
+        <AnimatedBoardHero />
 
         {/* Step 1: Select Game Mode */}
         <div className="flex flex-col gap-3">
