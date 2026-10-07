@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameRules } from '../types/game';
 import { sound } from '../utils/audio';
 import { AnimatedBoardHero } from './AnimatedBoardHero';
@@ -12,7 +12,8 @@ import {
   Sparkles,
   Shield,
   Zap,
-  RotateCcw,
+  Globe,
+  Share2,
   Check,
   Trophy,
 } from 'lucide-react';
@@ -23,23 +24,47 @@ interface LandingPageProps {
     players: Array<{ name: string; is_computer: boolean; avatar: string; color: string }>,
     rules: GameRules
   ) => void;
+  onOpenRemoteLobby: (roomCode: string, playerId: number, isHost: boolean) => void;
   initialRules: GameRules;
   onUpdateRules: (rules: GameRules) => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onStartGame,
+  onOpenRemoteLobby,
   initialRules,
   onUpdateRules,
 }) => {
-  // Main Mode: 'pvc' | 'multiplayer'
-  const [selectedMainMode, setSelectedMainMode] = useState<'pvc' | 'multiplayer'>('pvc');
+  // Main Mode: 'pvc' | 'multiplayer' | 'remote'
+  const [selectedMainMode, setSelectedMainMode] = useState<'pvc' | 'multiplayer' | 'remote'>('pvc');
 
   // PvC Sub-option: 1 bot (2p total), 2 bots (3p total), 3 bots (4p total)
   const [pvcBotCount, setPvcBotCount] = useState<1 | 2 | 3>(1);
 
   // Multiplayer Sub-option: 2 players, 3 players, 4 players
   const [multiplayerPlayerCount, setMultiplayerPlayerCount] = useState<2 | 3 | 4>(2);
+
+  // Remote Sub-tab: 'host' | 'join'
+  const [remoteSubTab, setRemoteSubTab] = useState<'host' | 'join'>('host');
+  const [remoteMaxPlayers, setRemoteMaxPlayers] = useState<2 | 3 | 4>(2);
+  const [hostPlayerName, setHostPlayerName] = useState('Host');
+  const [joinRoomCode, setJoinRoomCode] = useState('');
+  const [joinPlayerName, setJoinPlayerName] = useState('Guest');
+  const [remoteError, setRemoteError] = useState<string | null>(null);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+
+  // Check URL query param for ?room=CODE
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const roomParam = params.get('room') || params.get('join');
+      if (roomParam) {
+        setSelectedMainMode('remote');
+        setRemoteSubTab('join');
+        setJoinRoomCode(roomParam.trim().toUpperCase());
+      }
+    }
+  }, []);
 
   // Player configurations for PvC
   const [humanPlayerName, setHumanPlayerName] = useState('Player 1');
@@ -68,7 +93,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     onUpdateRules(updated);
   };
 
-  const handleStart = () => {
+  const handleStartLocal = () => {
     sound.playPowerup();
 
     let configuredPlayers: Array<{ name: string; is_computer: boolean; avatar: string; color: string }> = [];
@@ -105,7 +130,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           color: 'yellow',
         });
       }
-    } else {
+      onStartGame('pvc', configuredPlayers, rules);
+    } else if (selectedMainMode === 'multiplayer') {
       const count = multiplayerPlayerCount;
       for (let i = 0; i < count; i++) {
         const p = mpPlayers[i];
@@ -116,9 +142,69 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           color: p.color,
         });
       }
+      onStartGame('multiplayer', configuredPlayers, rules);
+    }
+  };
+
+  const handleCreateRemoteRoom = async () => {
+    sound.playPowerup();
+    setIsCreatingRoom(true);
+    setRemoteError(null);
+    try {
+      const res = await fetch('/api/room/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host_name: hostPlayerName.trim() || 'Host',
+          max_players: remoteMaxPlayers,
+          exact_finish: rules.exact100,
+          extra_turn_on_six: rules.extraTurnOnSix,
+        }),
+      });
+
+      const data = await res.json();
+      setIsCreatingRoom(false);
+      if (data.success) {
+        onOpenRemoteLobby(data.room_code, data.player_id, true);
+      } else {
+        setRemoteError(data.error || 'Failed to create room');
+      }
+    } catch (err) {
+      setIsCreatingRoom(false);
+      setRemoteError('Failed to connect to server to create room');
+    }
+  };
+
+  const handleJoinRemoteRoom = async () => {
+    sound.playClick();
+    if (!joinRoomCode.trim()) {
+      setRemoteError('Please enter a valid 5-character Room Code.');
+      return;
     }
 
-    onStartGame(selectedMainMode, configuredPlayers, rules);
+    setIsCreatingRoom(true);
+    setRemoteError(null);
+    try {
+      const res = await fetch('/api/room/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          room_code: joinRoomCode.trim().toUpperCase(),
+          player_name: joinPlayerName.trim() || 'Guest',
+        }),
+      });
+
+      const data = await res.json();
+      setIsCreatingRoom(false);
+      if (data.success) {
+        onOpenRemoteLobby(data.room_code, data.player_id, false);
+      } else {
+        setRemoteError(data.error || 'Failed to join room');
+      }
+    } catch (err) {
+      setIsCreatingRoom(false);
+      setRemoteError('Failed to connect to server to join room');
+    }
   };
 
   return (
@@ -170,50 +256,41 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         {/* Animated Live Game Showcase Hero */}
         <AnimatedBoardHero />
 
-        {/* Step 1: Select Game Mode */}
+        {/* Step 1: Select Game Mode (3 Modes: PvC, Multiplayer, Remote) */}
         <div className="flex flex-col gap-3">
           <span className="text-xs font-black uppercase tracking-wider text-slate-400">
             Step 1: Choose Game Mode
           </span>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {/* Mode 1: Player vs Computer */}
             <button
               onClick={() => {
                 sound.playClick();
                 setSelectedMainMode('pvc');
               }}
-              className={`p-4 rounded-2xl border text-left flex items-start gap-3.5 transition-all cursor-pointer relative ${
+              className={`p-4 rounded-2xl border text-left flex flex-col gap-2 transition-all cursor-pointer relative ${
                 selectedMainMode === 'pvc'
                   ? 'bg-slate-900 border-amber-500 ring-2 ring-amber-400/50 shadow-lg shadow-amber-500/10'
                   : 'bg-slate-900/50 border-slate-800 hover:border-slate-700 text-slate-300'
               }`}
             >
-              <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 ${
-                  selectedMainMode === 'pvc'
-                    ? 'bg-amber-500 text-slate-950 font-black shadow-md'
-                    : 'bg-slate-800 text-slate-400'
-                }`}
-              >
-                🤖
-              </div>
-
-              <div className="flex flex-col flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-black text-white uppercase">
-                    Mode 1: Player vs Computer
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg ${selectedMainMode === 'pvc' ? 'bg-amber-500 text-slate-950 font-black' : 'bg-slate-800'}`}>
+                    🤖
+                  </div>
+                  <span className="text-xs font-black text-white uppercase">
+                    Mode 1: PvC
                   </span>
-                  {selectedMainMode === 'pvc' && (
-                    <span className="text-[10px] text-amber-400 font-black bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/40">
-                      SELECTED
-                    </span>
-                  )}
                 </div>
-                <p className="text-xs text-slate-400 mt-1 leading-snug">
-                  Challenge 1, 2, or 3 smart automated bots with turn deliberation.
-                </p>
+                {selectedMainMode === 'pvc' && (
+                  <span className="text-[10px] text-amber-400 font-black">ACTIVE</span>
+                )}
               </div>
+              <p className="text-[11px] text-slate-400 leading-snug">
+                1 vs 1, 2, or 3 smart automated bots.
+              </p>
             </button>
 
             {/* Mode 2: Local Multiplayer */}
@@ -222,44 +299,66 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 sound.playClick();
                 setSelectedMainMode('multiplayer');
               }}
-              className={`p-4 rounded-2xl border text-left flex items-start gap-3.5 transition-all cursor-pointer relative ${
+              className={`p-4 rounded-2xl border text-left flex flex-col gap-2 transition-all cursor-pointer relative ${
                 selectedMainMode === 'multiplayer'
                   ? 'bg-slate-900 border-amber-500 ring-2 ring-amber-400/50 shadow-lg shadow-amber-500/10'
                   : 'bg-slate-900/50 border-slate-800 hover:border-slate-700 text-slate-300'
               }`}
             >
-              <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 ${
-                  selectedMainMode === 'multiplayer'
-                    ? 'bg-amber-500 text-slate-950 font-black shadow-md'
-                    : 'bg-slate-800 text-slate-400'
-                }`}
-              >
-                👥
-              </div>
-
-              <div className="flex flex-col flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-black text-white uppercase">
-                    Mode 2: Local Multiplayer
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg ${selectedMainMode === 'multiplayer' ? 'bg-amber-500 text-slate-950 font-black' : 'bg-slate-800'}`}>
+                    👥
+                  </div>
+                  <span className="text-xs font-black text-white uppercase">
+                    Mode 2: Local
                   </span>
-                  {selectedMainMode === 'multiplayer' && (
-                    <span className="text-[10px] text-amber-400 font-black bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/40">
-                      SELECTED
-                    </span>
-                  )}
                 </div>
-                <p className="text-xs text-slate-400 mt-1 leading-snug">
-                  Pass and play with 2, 3, or 4 human players on the same device.
-                </p>
+                {selectedMainMode === 'multiplayer' && (
+                  <span className="text-[10px] text-amber-400 font-black">ACTIVE</span>
+                )}
               </div>
+              <p className="text-[11px] text-slate-400 leading-snug">
+                Pass & Play for 2, 3, or 4 human players.
+              </p>
+            </button>
+
+            {/* Mode 3: Remote Online Mode */}
+            <button
+              onClick={() => {
+                sound.playClick();
+                setSelectedMainMode('remote');
+              }}
+              className={`p-4 rounded-2xl border text-left flex flex-col gap-2 transition-all cursor-pointer relative ${
+                selectedMainMode === 'remote'
+                  ? 'bg-slate-900 border-amber-500 ring-2 ring-amber-400/50 shadow-lg shadow-amber-500/10'
+                  : 'bg-slate-900/50 border-slate-800 hover:border-slate-700 text-slate-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg ${selectedMainMode === 'remote' ? 'bg-amber-500 text-slate-950 font-black' : 'bg-slate-800'}`}>
+                    🌐
+                  </div>
+                  <span className="text-xs font-black text-white uppercase">
+                    Mode 3: Remote
+                  </span>
+                </div>
+                {selectedMainMode === 'remote' && (
+                  <span className="text-[10px] text-amber-400 font-black">ACTIVE</span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400 leading-snug">
+                Play with friends via Room Code / Link (2, 3, or 4 Players).
+              </p>
             </button>
           </div>
         </div>
 
         {/* Step 2: Sub-options & Contender Customization Box */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 flex flex-col gap-5 shadow-xl">
-          {selectedMainMode === 'pvc' ? (
+          {/* Mode 1: PvC Config */}
+          {selectedMainMode === 'pvc' && (
             <>
               <div className="flex flex-col gap-2">
                 <span className="text-xs font-black uppercase tracking-wider text-slate-400">
@@ -368,7 +467,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 )}
               </div>
             </>
-          ) : (
+          )}
+
+          {/* Mode 2: Local Multiplayer Config */}
+          {selectedMainMode === 'multiplayer' && (
             <>
               <div className="flex flex-col gap-2">
                 <span className="text-xs font-black uppercase tracking-wider text-slate-400">
@@ -448,6 +550,144 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </>
           )}
 
+          {/* Mode 3: Remote Online Mode Config */}
+          {selectedMainMode === 'remote' && (
+            <div className="flex flex-col gap-4">
+              {/* Host vs Join Tabs */}
+              <div className="flex items-center gap-2 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    setRemoteSubTab('host');
+                    setRemoteError(null);
+                  }}
+                  className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                    remoteSubTab === 'host'
+                      ? 'bg-amber-500 text-slate-950 shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  👑 Host a Room
+                </button>
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    setRemoteSubTab('join');
+                    setRemoteError(null);
+                  }}
+                  className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                    remoteSubTab === 'join'
+                      ? 'bg-amber-500 text-slate-950 shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  🔗 Join via Code / Link
+                </button>
+              </div>
+
+              {remoteSubTab === 'host' ? (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                      Room Player Capacity:
+                    </span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => {
+                          sound.playClick();
+                          setRemoteMaxPlayers(2);
+                        }}
+                        className={`py-2 rounded-xl border text-xs font-black transition-all cursor-pointer ${
+                          remoteMaxPlayers === 2
+                            ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
+                            : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'
+                        }`}
+                      >
+                        2 Players
+                      </button>
+                      <button
+                        onClick={() => {
+                          sound.playClick();
+                          setRemoteMaxPlayers(3);
+                        }}
+                        className={`py-2 rounded-xl border text-xs font-black transition-all cursor-pointer ${
+                          remoteMaxPlayers === 3
+                            ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
+                            : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'
+                        }`}
+                      >
+                        3 Players
+                      </button>
+                      <button
+                        onClick={() => {
+                          sound.playClick();
+                          setRemoteMaxPlayers(4);
+                        }}
+                        className={`py-2 rounded-xl border text-xs font-black transition-all cursor-pointer ${
+                          remoteMaxPlayers === 4
+                            ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
+                            : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'
+                        }`}
+                      >
+                        4 Players
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col gap-1.5">
+                    <label className="text-[11px] font-bold text-amber-400">
+                      👑 Your Name (Room Host)
+                    </label>
+                    <input
+                      type="text"
+                      value={hostPlayerName}
+                      onChange={(e) => setHostPlayerName(e.target.value)}
+                      maxLength={14}
+                      placeholder="e.g. Host Alex"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col gap-1.5">
+                    <label className="text-[11px] font-bold text-amber-400">
+                      🔑 Enter 5-Letter Room Code
+                    </label>
+                    <input
+                      type="text"
+                      value={joinRoomCode}
+                      onChange={(e) => setJoinRoomCode(e.target.value.toUpperCase())}
+                      maxLength={8}
+                      placeholder="e.g. 7KF9A"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm font-black text-amber-300 font-mono tracking-widest focus:outline-none focus:border-amber-400 uppercase"
+                    />
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col gap-1.5">
+                    <label className="text-[11px] font-bold text-slate-300">
+                      👤 Your Contender Name
+                    </label>
+                    <input
+                      type="text"
+                      value={joinPlayerName}
+                      onChange={(e) => setJoinPlayerName(e.target.value)}
+                      maxLength={14}
+                      placeholder="e.g. Player Chris"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {remoteError && (
+                <div className="p-2.5 rounded-xl bg-rose-950/80 border border-rose-800 text-rose-300 text-xs font-bold text-center">
+                  {remoteError}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Quick Match Rules Bar */}
           <div className="border-t border-slate-800 pt-3.5 flex flex-wrap items-center justify-between gap-2.5">
             <button
@@ -507,12 +747,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           {/* Big Launch CTA Button */}
-          <button
-            onClick={handleStart}
-            className="w-full py-4 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-lg uppercase tracking-wider rounded-2xl shadow-2xl shadow-amber-500/25 flex items-center justify-center gap-3 transition-transform active:scale-98 cursor-pointer border-b-4 border-amber-600"
-          >
-            <Play className="w-5 h-5 fill-slate-950" /> START GAME
-          </button>
+          {selectedMainMode === 'remote' ? (
+            <button
+              onClick={remoteSubTab === 'host' ? handleCreateRemoteRoom : handleJoinRemoteRoom}
+              disabled={isCreatingRoom}
+              className="w-full py-4 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-lg uppercase tracking-wider rounded-2xl shadow-2xl shadow-amber-500/25 flex items-center justify-center gap-3 transition-transform active:scale-98 cursor-pointer border-b-4 border-amber-600 disabled:opacity-60"
+            >
+              <span>🌐</span>
+              <span>{remoteSubTab === 'host' ? 'CREATE ONLINE ROOM & GET CODE' : 'JOIN ONLINE ROOM NOW'}</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleStartLocal}
+              className="w-full py-4 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-lg uppercase tracking-wider rounded-2xl shadow-2xl shadow-amber-500/25 flex items-center justify-center gap-3 transition-transform active:scale-98 cursor-pointer border-b-4 border-amber-600"
+            >
+              <Play className="w-5 h-5 fill-slate-950" /> START GAME
+            </button>
+          )}
         </div>
       </main>
 

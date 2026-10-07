@@ -1,4 +1,4 @@
-export type GameMode = 'pvc' | 'two' | 'four';
+export type GameMode = 'pvc' | 'multiplayer' | 'remote';
 
 export interface Player {
   id: number;
@@ -48,6 +48,7 @@ export interface RollApiResponse {
   winner: Player | null;
   players: Player[];
   error?: string;
+  room?: any;
 }
 
 export interface NewGameApiResponse {
@@ -69,4 +70,23 @@ export interface NewGameApiResponse {
     };
     move_history: any[];
   };
+}
+
+export interface RoomState {
+  code: string;
+  host_id: number;
+  status: 'lobby' | 'playing' | 'ended';
+  max_players: number;
+  players: Player[];
+  current_player: number;
+  game_over: boolean;
+  winner: Player | null;
+  last_dice: number | null;
+  rules: {
+    board_size: number;
+    exact_finish: boolean;
+    extra_turn_on_six: boolean;
+  };
+  move_history: any[];
+  last_updated: number;
 }

@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { GameRules, MoveLog, Player, RollApiResponse, NewGameApiResponse } from './types/game';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { GameRules, MoveLog, Player, RollApiResponse, NewGameApiResponse, RoomState } from './types/game';
 import { GameBoard } from './components/GameBoard';
 import { Dice3D } from './components/Dice3D';
 import { LandingPage } from './components/LandingPage';
+import { RemoteRoomLobby } from './components/RemoteRoomLobby';
 import { RulesModal } from './components/RulesModal';
 import { SettingsModal } from './components/SettingsModal';
 import { NewGameConfirmModal } from './components/NewGameConfirmModal';
@@ -26,6 +27,10 @@ import {
   Bot,
   User,
   Sparkles,
+  Globe,
+  Copy,
+  Check,
+  Share2,
 } from 'lucide-react';
 
 const DEFAULT_RULES: GameRules = {
@@ -36,8 +41,8 @@ const DEFAULT_RULES: GameRules = {
 };
 
 export default function App() {
-  // Current View: 'landing' or 'game'
-  const [currentView, setCurrentView] = useState<'landing' | 'game'>('landing');
+  // Current View: 'landing' | 'lobby' | 'game'
+  const [currentView, setCurrentView] = useState<'landing' | 'lobby' | 'game'>('landing');
 
   // Game session & state
   const [gameId, setGameId] = useState<string | null>(null);
@@ -51,6 +56,13 @@ export default function App() {
   const [winner, setWinner] = useState<Player | null>(null);
   const [lastDice, setLastDice] = useState<number>(1);
   const [rules, setRules] = useState<GameRules>(DEFAULT_RULES);
+
+  // Remote online match state
+  const [isRemoteMatch, setIsRemoteMatch] = useState<boolean>(false);
+  const [roomCode, setRoomCode] = useState<string | null>(null);
+  const [myPlayerId, setMyPlayerId] = useState<number | null>(null);
+  const [isRoomHost, setIsRoomHost] = useState<boolean>(false);
+  const [copiedLink, setCopiedLink] = useState<boolean>(false);
 
   // Animation & UI state
   const [isRolling, setIsRolling] = useState<boolean>(false);
@@ -68,7 +80,11 @@ export default function App() {
   const [showLogDrawer, setShowLogDrawer] = useState<boolean>(false);
   const [moveLogs, setMoveLogs] = useState<MoveLog[]>([]);
 
+  // Ref tracking last move history length in remote room to animate turns
+  const lastRemoteMoveCountRef = useRef<number>(0);
+
   const activePlayer = players.find((p) => p.id === currentPlayerId) || players[0];
+  const isMyTurnInRemote = isRemoteMatch ? myPlayerId === currentPlayerId : true;
 
   // Helper delay
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -79,14 +95,19 @@ export default function App() {
     return 140; // normal
   }, [rules.animationSpeed]);
 
-  // Start game from Landing Page
-  const handleStartFromLanding = useCallback(async (
+  // Start local game from Landing Page (PvC or Pass & Play)
+  const handleStartLocalGame = useCallback(async (
     mode: 'pvc' | 'multiplayer',
     configuredPlayers: Array<{ name: string; is_computer: boolean; avatar: string; color: string }>,
     customRules: GameRules
   ) => {
     try {
       setRules(customRules);
+      setIsRemoteMatch(false);
+      setRoomCode(null);
+      setMyPlayerId(null);
+      setIsRoomHost(false);
+
       const modeLabel =
         mode === 'pvc'
           ? `Player 1 vs ${configuredPlayers.length - 1} Bot${configuredPlayers.length > 2 ? 's' : ''}`
@@ -129,8 +150,80 @@ export default function App() {
     }
   }, []);
 
+  // Open remote lobby from Landing Page
+  const handleOpenRemoteLobby = useCallback((code: string, playerId: number, isHost: boolean) => {
+    setRoomCode(code);
+    setMyPlayerId(playerId);
+    setIsRoomHost(isHost);
+    setIsRemoteMatch(true);
+    setCurrentView('lobby');
+  }, []);
+
+  // Launch active remote match from lobby
+  const handleStartRemoteMatch = useCallback(async () => {
+    if (!roomCode) return;
+    try {
+      const res = await fetch(`/api/room/state?room_code=${roomCode}&player_id=${myPlayerId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success && data.room) {
+        const room: RoomState = data.room;
+        setPlayers(room.players);
+        setCurrentPlayerId(room.current_player);
+        setGameOver(room.game_over);
+        setWinner(room.winner);
+        setRules((prev) => ({
+          ...prev,
+          exact100: room.rules.exact_finish,
+          extraTurnOnSix: room.rules.extra_turn_on_six,
+        }));
+        setActiveModeTitle(`🌐 Online Room: ${room.code} (${room.players.length} Players)`);
+        setMoveLogs([]);
+        lastRemoteMoveCountRef.current = room.move_history.length;
+        setCurrentView('game');
+
+        const currP = room.players[room.current_player];
+        if (myPlayerId === room.current_player) {
+          setStatusMessage(`🎯 It's YOUR turn! Click the 3D Dice to roll.`);
+        } else {
+          setStatusMessage(`Waiting for ${currP?.name} to roll...`);
+        }
+      }
+    } catch (err) {
+      console.error('Error starting remote match:', err);
+    }
+  }, [roomCode, myPlayerId]);
+
   // Restart active game match
   const handleRestartMatch = useCallback(async () => {
+    if (isRemoteMatch && roomCode) {
+      try {
+        const res = await fetch('/api/room/restart', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ room_code: roomCode, player_id: myPlayerId }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setPlayers(data.room.players);
+          setCurrentPlayerId(0);
+          setGameOver(false);
+          setWinner(null);
+          setLastDice(1);
+          setMoveLogs([]);
+          setSteppingPlayerId(null);
+          setSteppingTile(null);
+          setIsRolling(false);
+          setIsAnimatingMove(false);
+          setActiveEventBanner(null);
+          setStatusMessage(`Match restarted! ${data.room.players[0].name}'s turn.`);
+        }
+      } catch (err) {
+        console.error('Error restarting room:', err);
+      }
+      return;
+    }
+
     if (!gameId) return;
     try {
       const res = await fetch('/api/game/restart', {
@@ -160,11 +253,135 @@ export default function App() {
     } catch (err) {
       console.error('Error restarting game:', err);
     }
-  }, [gameId]);
+  }, [isRemoteMatch, roomCode, myPlayerId, gameId]);
+
+  // Execute turn animation sequence
+  const executeStepAnimation = useCallback(async (
+    actingPlayerId: number,
+    actingPlayerName: string,
+    actingPlayerAvatar: string,
+    dice: number,
+    oldPos: number,
+    landingPos: number,
+    finalPos: number,
+    event: 'normal' | 'ladder' | 'snake' | 'overshoot' | 'winner',
+    message: string,
+    extraTurn: boolean,
+    updatedPlayers: Player[],
+    nextPlayerId: number,
+    isGameOver: boolean,
+    gameWinner: Player | null
+  ) => {
+    setIsAnimatingMove(true);
+    setSteppingPlayerId(actingPlayerId);
+
+    // 1. Progressive step-by-step movement animation
+    if (event !== 'overshoot') {
+      let curr = oldPos;
+      while (curr < landingPos) {
+        curr++;
+        setSteppingTile(curr);
+        sound.playStepBounce(curr % 8);
+        await delay(getStepSpeedMs());
+      }
+    } else {
+      // Overshoot bounce
+      sound.playKnockout();
+      setActiveEventBanner({ text: `⚠️ You need an exact roll to reach 100!`, type: 'overshoot' });
+      setStatusMessage(`${actingPlayerName} rolled a ${dice}. You need an exact roll to reach 100.`);
+      await delay(900);
+    }
+
+    // 2. Ladder Climb Animation
+    if (event === 'ladder') {
+      await delay(300);
+      sound.playLadderClimb();
+      setActiveEventBanner({
+        text: `🪜 Ladder! Climbed from ${landingPos} to ${finalPos}!`,
+        type: 'ladder',
+      });
+      setStatusMessage(`🪜 Ladder! ${actingPlayerName} climbed from ${landingPos} to ${finalPos}.`);
+      setSteppingTile(finalPos);
+      await delay(800);
+    }
+
+    // 3. Snake Slide Animation
+    if (event === 'snake') {
+      await delay(300);
+      sound.playSnakeSlide();
+      setActiveEventBanner({
+        text: `🐍 Snake! Slid down from ${landingPos} to ${finalPos}!`,
+        type: 'snake',
+      });
+      setStatusMessage(`🐍 Snake! ${actingPlayerName} slid down from ${landingPos} to ${finalPos}.`);
+      setSteppingTile(finalPos);
+      await delay(800);
+    }
+
+    // 4. Update player list with server state
+    setPlayers(updatedPlayers);
+    setSteppingPlayerId(null);
+    setSteppingTile(null);
+    setIsAnimatingMove(false);
+
+    // Add to move logs
+    const newLog: MoveLog = {
+      id: `log_${Date.now()}_${Math.random()}`,
+      playerId: actingPlayerId,
+      playerName: actingPlayerName,
+      playerAvatar: actingPlayerAvatar,
+      dice,
+      oldPosition: oldPos,
+      landingPosition: landingPos,
+      finalPosition: finalPos,
+      event,
+      message,
+      extraTurn,
+    };
+    setMoveLogs((prev) => [...prev, newLog]);
+
+    // 5. Check Game Over / Winner
+    if (isGameOver && gameWinner) {
+      sound.playWinFanfare();
+      setGameOver(true);
+      setWinner(gameWinner);
+      setActiveEventBanner({ text: `🏆 ${gameWinner.name} Wins!`, type: 'winner' });
+      setStatusMessage(`🏆 ${gameWinner.name} Wins! Congratulations!`);
+      return;
+    }
+
+    // 6. Extra turn or next turn
+    if (extraTurn) {
+      sound.playPowerup();
+      setActiveEventBanner({ text: `🌟 Rolled a 6! ${actingPlayerName} gets another turn!`, type: 'six' });
+      setStatusMessage(`🌟 ${actingPlayerName} rolled a 6 and gets an extra turn!`);
+      await delay(1000);
+      setActiveEventBanner(null);
+    } else {
+      setCurrentPlayerId(nextPlayerId);
+      const nextP = updatedPlayers.find((p) => p.id === nextPlayerId);
+      if (isRemoteMatch) {
+        if (myPlayerId === nextPlayerId) {
+          setStatusMessage(`🎯 It's YOUR turn! Click the 3D Dice to roll.`);
+        } else {
+          setStatusMessage(`Waiting for ${nextP?.name} to roll...`);
+        }
+      } else {
+        setStatusMessage(`${nextP?.name}'s Turn.`);
+      }
+      setActiveEventBanner(null);
+    }
+  }, [getStepSpeedMs, isRemoteMatch, myPlayerId]);
 
   // Handle rolling dice turn
   const handleRollDice = useCallback(async (forcedPlayerId?: number) => {
-    if (isRolling || isAnimatingMove || gameOver || !gameId) return;
+    if (isRolling || isAnimatingMove || gameOver) return;
+
+    if (isRemoteMatch) {
+      if (!roomCode || myPlayerId === null || myPlayerId !== currentPlayerId) return;
+    } else {
+      if (!gameId) return;
+    }
 
     const actingPlayerId = forcedPlayerId !== undefined ? forcedPlayerId : currentPlayerId;
     const actingPlayer = players.find((p) => p.id === actingPlayerId) || activePlayer;
@@ -176,119 +393,82 @@ export default function App() {
     await delay(700);
 
     try {
-      const res = await fetch('/api/game/roll', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          game_id: gameId,
-          player_id: actingPlayerId,
-        }),
-      });
+      if (isRemoteMatch && roomCode) {
+        const res = await fetch('/api/room/roll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            room_code: roomCode,
+            player_id: myPlayerId,
+          }),
+        });
 
-      const data: RollApiResponse = await res.json();
-      if (!data.success) {
-        setIsRolling(false);
-        if (data.error) setStatusMessage(data.error);
-        return;
-      }
-
-      setLastDice(data.dice);
-      setIsRolling(false);
-      setIsAnimatingMove(true);
-
-      const oldPos = data.old_position;
-      const landingPos = data.landing_position;
-      const finalPos = data.final_position;
-
-      setSteppingPlayerId(actingPlayerId);
-
-      // 1. Progressive step-by-step movement animation
-      if (data.event !== 'overshoot') {
-        let curr = oldPos;
-        while (curr < landingPos) {
-          curr++;
-          setSteppingTile(curr);
-          sound.playStepBounce(curr % 8);
-          await delay(getStepSpeedMs());
+        const data: RollApiResponse = await res.json();
+        if (!data.success) {
+          setIsRolling(false);
+          if (data.error) setStatusMessage(data.error);
+          return;
         }
+
+        setLastDice(data.dice);
+        setIsRolling(false);
+
+        if (data.room && data.room.move_history) {
+          lastRemoteMoveCountRef.current = data.room.move_history.length;
+        }
+
+        await executeStepAnimation(
+          data.player_id,
+          data.player_name,
+          actingPlayer.avatar,
+          data.dice,
+          data.old_position,
+          data.landing_position,
+          data.final_position,
+          data.event,
+          data.message,
+          data.extra_turn,
+          data.players,
+          data.next_player,
+          data.game_over,
+          data.winner
+        );
       } else {
-        // Overshoot bounce
-        sound.playKnockout();
-        setActiveEventBanner({ text: `⚠️ You need an exact roll to reach 100!`, type: 'overshoot' });
-        setStatusMessage(`${actingPlayer.name} rolled a ${data.dice}. You need an exact roll to reach 100.`);
-        await delay(900);
-      }
-
-      // 2. Ladder Climb Animation
-      if (data.event === 'ladder') {
-        await delay(300);
-        sound.playLadderClimb();
-        setActiveEventBanner({
-          text: `🪜 Ladder! Climbed from ${landingPos} to ${finalPos}!`,
-          type: 'ladder',
+        const res = await fetch('/api/game/roll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            game_id: gameId,
+            player_id: actingPlayerId,
+          }),
         });
-        setStatusMessage(`🪜 Ladder! ${actingPlayer.name} climbed from ${landingPos} to ${finalPos}.`);
-        setSteppingTile(finalPos);
-        await delay(800);
-      }
 
-      // 3. Snake Slide Animation
-      if (data.event === 'snake') {
-        await delay(300);
-        sound.playSnakeSlide();
-        setActiveEventBanner({
-          text: `🐍 Snake! Slid down from ${landingPos} to ${finalPos}!`,
-          type: 'snake',
-        });
-        setStatusMessage(`🐍 Snake! ${actingPlayer.name} slid down from ${landingPos} to ${finalPos}.`);
-        setSteppingTile(finalPos);
-        await delay(800);
-      }
+        const data: RollApiResponse = await res.json();
+        if (!data.success) {
+          setIsRolling(false);
+          if (data.error) setStatusMessage(data.error);
+          return;
+        }
 
-      // 4. Update player list with server state
-      setPlayers(data.players);
-      setSteppingPlayerId(null);
-      setSteppingTile(null);
-      setIsAnimatingMove(false);
+        setLastDice(data.dice);
+        setIsRolling(false);
 
-      // Add to move logs
-      const newLog: MoveLog = {
-        id: `log_${Date.now()}`,
-        playerId: actingPlayer.id,
-        playerName: actingPlayer.name,
-        playerAvatar: actingPlayer.avatar,
-        dice: data.dice,
-        oldPosition: oldPos,
-        landingPosition: landingPos,
-        finalPosition: finalPos,
-        event: data.event,
-        message: data.message,
-        extraTurn: data.extra_turn,
-      };
-      setMoveLogs((prev) => [...prev, newLog]);
-
-      // 5. Check Game Over / Winner
-      if (data.game_over && data.winner) {
-        sound.playWinFanfare();
-        setGameOver(true);
-        setWinner(data.winner);
-        setActiveEventBanner({ text: `🏆 ${data.winner.name} Wins!`, type: 'winner' });
-        setStatusMessage(`🏆 ${data.winner.name} Wins! Congratulations!`);
-        return;
-      }
-
-      // 6. Extra turn or next turn
-      if (data.extra_turn) {
-        sound.playPowerup();
-        setActiveEventBanner({ text: `🌟 Rolled a 6! ${actingPlayer.name} gets another turn!`, type: 'six' });
-        setStatusMessage(`🌟 ${actingPlayer.name} rolled a 6 and gets an extra turn!`);
-        await delay(1000);
-        setActiveEventBanner(null);
-      } else {
-        setCurrentPlayerId(data.next_player);
-        const nextP = data.players.find((p) => p.id === data.next_player);
-        setStatusMessage(`${nextP?.name}'s Turn.`);
-        setActiveEventBanner(null);
+        await executeStepAnimation(
+          data.player_id,
+          data.player_name,
+          actingPlayer.avatar,
+          data.dice,
+          data.old_position,
+          data.landing_position,
+          data.final_position,
+          data.event,
+          data.message,
+          data.extra_turn,
+          data.players,
+          data.next_player,
+          data.game_over,
+          data.winner
+        );
       }
     } catch (err) {
       console.error('Error during dice roll:', err);
@@ -299,16 +479,91 @@ export default function App() {
     isRolling,
     isAnimatingMove,
     gameOver,
-    gameId,
+    isRemoteMatch,
+    roomCode,
+    myPlayerId,
     currentPlayerId,
+    gameId,
     players,
     activePlayer,
-    getStepSpeedMs,
+    executeStepAnimation,
   ]);
 
-  // AI Computer Turn Effect
+  // Polling for Online Remote Room updates during active game
   useEffect(() => {
-    if (currentView !== 'game' || gameOver || isRolling || isAnimatingMove || showNewGameConfirm) return;
+    if (currentView !== 'game' || !isRemoteMatch || !roomCode || isAnimatingMove || isRolling) return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/room/state?room_code=${roomCode}&player_id=${myPlayerId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!isMounted || !data.success || !data.room) return;
+
+        const room: RoomState = data.room;
+
+        // Check if a remote opponent rolled and there are new moves to animate
+        const historyLen = room.move_history?.length || 0;
+        if (historyLen > lastRemoteMoveCountRef.current) {
+          const latestMove = room.move_history[historyLen - 1];
+          lastRemoteMoveCountRef.current = historyLen;
+
+          // If the move was performed by another player, trigger the roll animation & stepping!
+          if (latestMove.player_id !== myPlayerId) {
+            setLastDice(latestMove.dice);
+            setIsRolling(true);
+            sound.playDiceRoll();
+            setStatusMessage(`${latestMove.player_name} is rolling the dice...`);
+            await delay(700);
+            setIsRolling(false);
+
+            const pAvatar = room.players.find((p) => p.id === latestMove.player_id)?.avatar || '🔴';
+            await executeStepAnimation(
+              latestMove.player_id,
+              latestMove.player_name,
+              pAvatar,
+              latestMove.dice,
+              latestMove.old_position,
+              latestMove.landing_position,
+              latestMove.final_position,
+              latestMove.event,
+              latestMove.message,
+              latestMove.extra_turn,
+              room.players,
+              room.current_player,
+              room.game_over,
+              room.winner
+            );
+          }
+        } else if (!isAnimatingMove && !isRolling) {
+          // Sync basic state if no animation active
+          setPlayers(room.players);
+          setCurrentPlayerId(room.current_player);
+          setGameOver(room.game_over);
+          setWinner(room.winner);
+
+          const currP = room.players[room.current_player];
+          if (myPlayerId === room.current_player && !room.game_over) {
+            setStatusMessage(`🎯 It's YOUR turn! Click the 3D Dice to roll.`);
+          } else if (!room.game_over) {
+            setStatusMessage(`Waiting for ${currP?.name} to roll...`);
+          }
+        }
+      } catch (err) {
+        console.error('Remote sync error:', err);
+      }
+    }, 1000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [currentView, isRemoteMatch, roomCode, myPlayerId, isAnimatingMove, isRolling, executeStepAnimation]);
+
+  // AI Computer Turn Effect (for local PvC)
+  useEffect(() => {
+    if (currentView !== 'game' || isRemoteMatch || gameOver || isRolling || isAnimatingMove || showNewGameConfirm) return;
 
     if (activePlayer && activePlayer.is_computer) {
       setComputerThinking(true);
@@ -325,6 +580,7 @@ export default function App() {
     }
   }, [
     currentView,
+    isRemoteMatch,
     currentPlayerId,
     activePlayer,
     gameOver,
@@ -341,13 +597,42 @@ export default function App() {
     setRules((prev) => ({ ...prev, soundEnabled: next }));
   };
 
+  const handleCopyInviteLink = () => {
+    sound.playClick();
+    const link = typeof window !== 'undefined' ? `${window.location.origin}/?room=${roomCode}` : `?room=${roomCode}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(link);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
+
   // If on Landing Page, render LandingPage component
   if (currentView === 'landing') {
     return (
       <LandingPage
-        onStartGame={handleStartFromLanding}
+        onStartGame={handleStartLocalGame}
+        onOpenRemoteLobby={handleOpenRemoteLobby}
         initialRules={rules}
         onUpdateRules={setRules}
+      />
+    );
+  }
+
+  // If in Remote Room Lobby, render RemoteRoomLobby
+  if (currentView === 'lobby' && roomCode && myPlayerId !== null) {
+    return (
+      <RemoteRoomLobby
+        roomCode={roomCode}
+        playerId={myPlayerId}
+        isHost={isRoomHost}
+        onStartMatch={handleStartRemoteMatch}
+        onLeaveRoom={() => {
+          setIsRemoteMatch(false);
+          setRoomCode(null);
+          setMyPlayerId(null);
+          setCurrentView('landing');
+        }}
       />
     );
   }
@@ -366,9 +651,21 @@ export default function App() {
             <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5">
               SNAKE & LADDER
             </h1>
-            <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">
-              {activeModeTitle}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">
+                {activeModeTitle}
+              </span>
+              {isRemoteMatch && (
+                <button
+                  onClick={handleCopyInviteLink}
+                  className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500 hover:text-slate-950 transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Click to copy invite link"
+                >
+                  {copiedLink ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
+                  <span>{copiedLink ? 'COPIED!' : `ROOM: ${roomCode}`}</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -378,6 +675,11 @@ export default function App() {
           <button
             onClick={() => {
               sound.playClick();
+              if (isRemoteMatch) {
+                setIsRemoteMatch(false);
+                setRoomCode(null);
+                setMyPlayerId(null);
+              }
               setCurrentView('landing');
             }}
             className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-200 hover:text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
@@ -500,15 +802,23 @@ export default function App() {
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Trophy className="w-3.5 h-3.5 text-amber-400" /> Player Contenders
               </span>
-              <span className="text-[11px] font-mono text-slate-400 font-bold">
-                {players.length} Players
-              </span>
+              <div className="flex items-center gap-2">
+                {isRemoteMatch && myPlayerId !== null && (
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                    YOU: {players.find((p) => p.id === myPlayerId)?.name}
+                  </span>
+                )}
+                <span className="text-[11px] font-mono text-slate-400 font-bold">
+                  {players.length} Players
+                </span>
+              </div>
             </div>
 
             {/* List of Players */}
             <div className="flex flex-col gap-2">
               {players.map((p) => {
                 const isTurn = p.id === currentPlayerId;
+                const isMe = isRemoteMatch && p.id === myPlayerId;
 
                 return (
                   <div
@@ -516,6 +826,8 @@ export default function App() {
                     className={`p-3 rounded-xl border transition-all ${
                       isTurn
                         ? 'bg-slate-800/90 border-amber-500 ring-2 ring-amber-400/40 shadow-md'
+                        : isMe
+                        ? 'bg-slate-900/90 border-sky-500/40 text-slate-200'
                         : 'bg-slate-950/50 border-slate-800 text-slate-300'
                     }`}
                   >
@@ -523,8 +835,13 @@ export default function App() {
                       <div className="flex items-center gap-2.5">
                         <span className="text-xl">{p.avatar}</span>
                         <div>
-                          <h4 className={`text-sm font-black ${isTurn ? 'text-amber-300' : 'text-white'}`}>
-                            {p.name}
+                          <h4 className={`text-sm font-black flex items-center gap-1.5 ${isTurn ? 'text-amber-300' : 'text-white'}`}>
+                            <span>{p.name}</span>
+                            {isMe && (
+                              <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-sky-500 text-slate-950 font-black">
+                                YOU
+                              </span>
+                            )}
                           </h4>
                           <span className="text-xs font-bold text-slate-400">
                             Position: <strong className="text-amber-400 font-mono text-sm">{p.position}</strong> / 100
@@ -536,7 +853,7 @@ export default function App() {
                         {isTurn ? (
                           <div className="flex flex-col items-end">
                             <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded bg-amber-500 text-slate-950 shadow animate-pulse">
-                              {p.is_computer ? '🤖 THINKING...' : 'YOUR TURN'}
+                              {p.is_computer ? '🤖 THINKING...' : isMe ? 'YOUR TURN' : 'ROLLING...'}
                             </span>
                             <span className="text-[10px] text-slate-400 mt-0.5">
                               Last Roll: {p.id === activePlayer.id ? lastDice : '-'}
@@ -561,7 +878,12 @@ export default function App() {
               value={lastDice}
               isRolling={isRolling}
               onRoll={() => handleRollDice()}
-              disabled={isAnimatingMove || activePlayer.is_computer || gameOver}
+              disabled={
+                isAnimatingMove ||
+                (activePlayer.is_computer && !isRemoteMatch) ||
+                (isRemoteMatch && !isMyTurnInRemote) ||
+                gameOver
+              }
             />
           </div>
 
@@ -617,6 +939,11 @@ export default function App() {
             handleRestartMatch();
           }}
           onMainMenu={() => {
+            if (isRemoteMatch) {
+              setIsRemoteMatch(false);
+              setRoomCode(null);
+              setMyPlayerId(null);
+            }
             setCurrentView('landing');
           }}
         />
