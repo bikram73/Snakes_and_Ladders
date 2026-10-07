@@ -600,18 +600,18 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950">
       {/* Top Game Navigation Header */}
-      <header className="w-full max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md sticky top-0 z-30">
+      <header className="w-full max-w-6xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md sticky top-0 z-30">
         {/* Brand & Mode Tag */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center text-xl shadow-lg shadow-amber-500/20 border border-amber-300">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center text-lg sm:text-xl shadow-lg shadow-amber-500/20 border border-amber-300 shrink-0">
             🐍
           </div>
           <div>
-            <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5">
+            <h1 className="text-sm sm:text-base md:text-lg font-black tracking-tight text-white flex items-center gap-1.5 leading-tight">
               SNAKE & LADDER
             </h1>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[9px] sm:text-[10px] text-amber-400 font-bold uppercase tracking-wider block truncate max-w-[140px] xs:max-w-[180px] sm:max-w-none">
                 {activeModeTitle}
               </span>
               {isRemoteMatch && (
@@ -629,7 +629,7 @@ export default function App() {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Return to Main Menu / Landing Page */}
           <button
             onClick={() => {
@@ -641,10 +641,10 @@ export default function App() {
               }
               setCurrentView('landing');
             }}
-            className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-200 hover:text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+            className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-200 hover:text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
             title="Main Menu"
           >
-            <Home className="w-3.5 h-3.5 text-amber-400" />
+            <Home className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             <span className="hidden sm:inline">Main Menu</span>
           </button>
 
@@ -654,7 +654,7 @@ export default function App() {
               sound.playClick();
               setShowNewGameConfirm(true);
             }}
-            className="p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
             title="Restart Match"
           >
             <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
@@ -666,10 +666,10 @@ export default function App() {
               sound.playClick();
               setShowRulesModal(true);
             }}
-            className="p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
             title="Game Rules"
           >
-            <BookOpen className="w-4 h-4 text-amber-400" />
+            <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
           </button>
 
           {/* Settings Modal */}
@@ -678,22 +678,22 @@ export default function App() {
               sound.playClick();
               setShowSettingsModal(true);
             }}
-            className="p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
             title="Game Settings"
           >
-            <SettingsIcon className="w-4 h-4 text-sky-400" />
+            <SettingsIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-sky-400" />
           </button>
 
           {/* Sound Toggle */}
           <button
             onClick={toggleSound}
-            className="p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
             title={rules.soundEnabled ? 'Mute Audio' : 'Unmute Audio'}
           >
             {rules.soundEnabled ? (
-              <Volume2 className="w-4 h-4 text-emerald-400" />
+              <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
             ) : (
-              <VolumeX className="w-4 h-4 text-rose-400" />
+              <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-400" />
             )}
           </button>
 
@@ -703,10 +703,10 @@ export default function App() {
               sound.playClick();
               setShowLogDrawer(!showLogDrawer);
             }}
-            className="relative p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
+            className="relative p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
             title="Move History Log"
           >
-            <History className="w-4 h-4 text-purple-400" />
+            <History className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400" />
             {moveLogs.length > 0 && (
               <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">
                 {moveLogs.length}
@@ -716,15 +716,15 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Game Layout */}
-      <main className="w-full max-w-6xl mx-auto px-4 py-4 flex-1 flex flex-col lg:flex-row items-center justify-center gap-6">
-        {/* Left Column: Game Board */}
-        <div className="w-full lg:w-3/5 flex flex-col items-center justify-center">
+      {/* Main Game Layout (Responsive across Mobile, Tablet, and Desktop) */}
+      <main className="w-full max-w-6xl mx-auto px-2 xs:px-3 sm:px-4 py-2 sm:py-4 flex-1 flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-8">
+        {/* Left Column: Game Board Arena */}
+        <div className="w-full lg:w-7/12 flex flex-col items-center justify-center max-w-[min(100%,560px)]">
           {/* Active Action / Notification Banner */}
-          <div className="h-8 mb-2 flex items-center justify-center w-full">
+          <div className="h-7 sm:h-8 mb-1.5 sm:mb-2 flex items-center justify-center w-full">
             {activeEventBanner ? (
               <div
-                className={`px-4 py-1 rounded-full text-xs font-black tracking-wide shadow-lg border animate-bounce ${
+                className={`px-3 sm:px-4 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-black tracking-wide shadow-lg border animate-bounce ${
                   activeEventBanner.type === 'ladder'
                     ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow-emerald-500/20'
                     : activeEventBanner.type === 'snake'
@@ -739,7 +739,7 @@ export default function App() {
                 {activeEventBanner.text}
               </div>
             ) : (
-              <span className="text-xs text-slate-400 font-medium">
+              <span className="text-[11px] sm:text-xs text-slate-400 font-medium text-center">
                 Reach square <strong className="text-amber-400">100</strong> to conquer the arena!
               </span>
             )}
@@ -754,12 +754,12 @@ export default function App() {
         </div>
 
         {/* Right Column: Player Dashboard & Dice Roller */}
-        <div className="w-full lg:w-2/5 flex flex-col gap-4 max-w-md">
+        <div className="w-full lg:w-5/12 flex flex-col gap-3 sm:gap-4 max-w-md">
           {/* Player Standings & Active Turn Glow */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-xl flex flex-col gap-2.5 sm:gap-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Trophy className="w-3.5 h-3.5 text-amber-400" /> Player Contenders
+                <Trophy className="w-3.5 h-3.5 text-amber-400" /> Contenders
               </span>
               <div className="flex items-center gap-2">
                 {isRemoteMatch && myPlayerId !== null && (
@@ -774,7 +774,7 @@ export default function App() {
             </div>
 
             {/* List of Players */}
-            <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
               {players.map((p) => {
                 const isTurn = p.id === currentPlayerId;
                 const isMe = isRemoteMatch && p.id === myPlayerId;
@@ -782,7 +782,7 @@ export default function App() {
                 return (
                   <div
                     key={p.id}
-                    className={`p-3 rounded-xl border transition-all ${
+                    className={`p-2.5 sm:p-3 rounded-xl border transition-all ${
                       isTurn
                         ? 'bg-slate-800/90 border-amber-500 ring-2 ring-amber-400/40 shadow-md'
                         : isMe
@@ -791,19 +791,19 @@ export default function App() {
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-xl">{p.avatar}</span>
+                      <div className="flex items-center gap-2 sm:gap-2.5">
+                        <span className="text-lg sm:text-xl">{p.avatar}</span>
                         <div>
-                          <h4 className={`text-sm font-black flex items-center gap-1.5 ${isTurn ? 'text-amber-300' : 'text-white'}`}>
-                            <span>{p.name}</span>
+                          <h4 className={`text-xs sm:text-sm font-black flex items-center gap-1.5 ${isTurn ? 'text-amber-300' : 'text-white'}`}>
+                            <span className="truncate max-w-[100px] sm:max-w-[130px]">{p.name}</span>
                             {isMe && (
-                              <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-sky-500 text-slate-950 font-black">
+                              <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-sky-500 text-slate-950 font-black">
                                 YOU
                               </span>
                             )}
                           </h4>
-                          <span className="text-xs font-bold text-slate-400">
-                            Position: <strong className="text-amber-400 font-mono text-sm">{p.position}</strong> / 100
+                          <span className="text-[11px] font-bold text-slate-400">
+                            Square: <strong className="text-amber-400 font-mono text-xs sm:text-sm">{p.position}</strong> / 100
                           </span>
                         </div>
                       </div>
@@ -811,15 +811,15 @@ export default function App() {
                       <div className="text-right">
                         {isTurn ? (
                           <div className="flex flex-col items-end">
-                            <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded bg-amber-500 text-slate-950 shadow animate-pulse">
-                              {p.is_computer ? '🤖 THINKING...' : isMe ? 'YOUR TURN' : 'ROLLING...'}
+                            <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 shadow animate-pulse">
+                              {p.is_computer ? '🤖 THINKING' : isMe ? 'YOUR TURN' : 'ROLLING'}
                             </span>
-                            <span className="text-[10px] text-slate-400 mt-0.5">
-                              Last Roll: {p.id === activePlayer.id ? lastDice : '-'}
+                            <span className="text-[9px] text-slate-400 mt-0.5">
+                              Roll: {p.id === activePlayer.id ? lastDice : '-'}
                             </span>
                           </div>
                         ) : (
-                          <span className="text-[10px] uppercase font-bold text-slate-500 bg-slate-800/80 px-2 py-0.5 rounded">
+                          <span className="text-[9px] uppercase font-bold text-slate-500 bg-slate-800/80 px-1.5 py-0.5 rounded">
                             WAITING
                           </span>
                         )}
@@ -832,7 +832,7 @@ export default function App() {
           </div>
 
           {/* Interactive 3D Dice Component */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col items-center justify-center">
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-xl flex flex-col items-center justify-center">
             <Dice3D
               value={lastDice}
               isRolling={isRolling}
@@ -847,11 +847,11 @@ export default function App() {
           </div>
 
           {/* Game Status Log Box */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg flex flex-col gap-1.5">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-3.5 shadow-lg flex flex-col gap-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
               GAME STATUS
             </span>
-            <p className="text-sm font-bold text-amber-300 leading-snug">
+            <p className="text-xs sm:text-sm font-bold text-amber-300 leading-snug">
               {statusMessage}
             </p>
           </div>
