@@ -1,0 +1,6 @@
+{
+  "name": "Snakes & Ladders Grand Arena",
+  "description": "An interactive, beautifully animated Snake and Ladder board game with 3D rolling dice, AI bots, multiplayer, board editor, customizable rules, and rich audio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
