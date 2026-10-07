@@ -586,6 +586,7 @@ export default function App() {
         playerId={myPlayerId}
         isHost={isRoomHost}
         onStartMatch={handleStartRemoteMatch}
+        onRegenerateCode={(newCode) => setRoomCode(newCode)}
         onLeaveRoom={() => {
           setIsRemoteMatch(false);
           setRoomCode(null);

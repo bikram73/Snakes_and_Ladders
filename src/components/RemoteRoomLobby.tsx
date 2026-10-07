@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { sound } from '../utils/audio';
 import { gameApi } from '../utils/apiClient';
 import { RoomState } from '../types/game';
-import { Users, Copy, Check, Play, Crown, ArrowLeft, Share2, Sparkles, Loader2 } from 'lucide-react';
+import { Users, Copy, Check, Play, Crown, ArrowLeft, Share2, Sparkles, Loader2, RefreshCw } from 'lucide-react';
 
 interface RemoteRoomLobbyProps {
   roomCode: string;
@@ -10,6 +10,7 @@ interface RemoteRoomLobbyProps {
   isHost: boolean;
   onStartMatch: () => void;
   onLeaveRoom: () => void;
+  onRegenerateCode?: (newCode: string) => void;
 }
 
 export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
@@ -18,10 +19,14 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
   isHost,
   onStartMatch,
   onLeaveRoom,
+  onRegenerateCode,
 }) => {
+  const [currentCode, setCurrentCode] = useState<string>(roomCode);
   const [room, setRoom] = useState<RoomState | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
 
   // Poll room state in lobby
   useEffect(() => {
@@ -29,7 +34,7 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
 
     const poll = async () => {
       try {
-        const data = await gameApi.getRoomState(roomCode, playerId);
+        const data = await gameApi.getRoomState(currentCode, playerId);
         if (data.success && data.room && isMounted) {
           setRoom(data.room);
           if (data.room.status === 'playing') {
@@ -47,9 +52,9 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
       isMounted = false;
       clearInterval(interval);
     };
-  }, [roomCode, playerId, onStartMatch]);
+  }, [currentCode, playerId, onStartMatch]);
 
-  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/?room=${roomCode}` : `?room=${roomCode}`;
+  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/?room=${currentCode}` : `?room=${currentCode}`;
 
   const handleCopyLink = () => {
     sound.playClick();
@@ -60,10 +65,41 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
     }
   };
 
+  const handleGenerateNewCode = async () => {
+    if (!isHost || isRegenerating) return;
+    sound.playPowerup();
+    setIsRegenerating(true);
+    setErrorMsg(null);
+
+    try {
+      const hostPlayer = room?.players.find((p) => p.id === playerId);
+      const hostName = hostPlayer?.name || 'Host';
+      const maxP = room?.max_players || 2;
+      const exact100 = room?.rules.exact_finish ?? true;
+      const extraTurnOnSix = room?.rules.extra_turn_on_six ?? true;
+
+      const data = await gameApi.createRoom(hostName, maxP, exact100, extraTurnOnSix);
+      setIsRegenerating(false);
+
+      if (data.success && data.room_code) {
+        setCurrentCode(data.room_code);
+        if (data.room) setRoom(data.room);
+        if (onRegenerateCode) onRegenerateCode(data.room_code);
+        setNotification(`✨ New Room Code Generated: ${data.room_code}`);
+        setTimeout(() => setNotification(null), 3000);
+      } else {
+        setErrorMsg(data.error || 'Failed to generate new code');
+      }
+    } catch (err) {
+      setIsRegenerating(false);
+      setErrorMsg('Failed to generate new room code');
+    }
+  };
+
   const handleHostStart = async () => {
     sound.playPowerup();
     try {
-      const data = await gameApi.startRoom(roomCode, playerId);
+      const data = await gameApi.startRoom(currentCode, playerId);
       if (data.success) {
         onStartMatch();
       } else {
@@ -84,7 +120,7 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-xl font-black">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-xl font-black shrink-0">
               🌐
             </div>
             <div>
@@ -106,41 +142,71 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
           </button>
         </div>
 
-        {/* Room Code & Invite Link Box */}
+        {/* Room Code & Action Controls Box */}
         <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
                 Room Code
               </span>
-              <span className="text-2xl sm:text-3xl font-black tracking-widest text-amber-400 font-mono">
-                {roomCode}
-              </span>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-2xl sm:text-3xl font-black tracking-widest text-amber-400 font-mono">
+                  {currentCode}
+                </span>
+                {isHost && (
+                  <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    Host
+                  </span>
+                )}
+              </div>
             </div>
 
-            <button
-              onClick={handleCopyLink}
-              className={`px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-md ${
-                copied
-                  ? 'bg-emerald-500 text-slate-950'
-                  : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
-              }`}
-            >
-              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              <span>{copied ? 'Link Copied!' : 'Copy Invite Link'}</span>
-            </button>
+            {/* Action Buttons: Copy Link & Generate New Code */}
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              {isHost && (
+                <button
+                  onClick={handleGenerateNewCode}
+                  disabled={isRegenerating}
+                  className="px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-400 active:scale-98 shadow disabled:opacity-50"
+                  title="Generate a fresh new Room Code"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
+                  <span>{isRegenerating ? 'Generating...' : 'New Code'}</span>
+                </button>
+              )}
+
+              <button
+                onClick={handleCopyLink}
+                className={`px-3.5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-md ${
+                  copied
+                    ? 'bg-emerald-500 text-slate-950 font-black'
+                    : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black'
+                }`}
+              >
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                <span>{copied ? 'Link Copied!' : 'Copy Invite Link'}</span>
+              </button>
+            </div>
           </div>
 
-          <p className="text-[11px] text-slate-400 font-mono bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 truncate">
+          <p className="text-[11px] text-slate-400 font-mono bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 truncate select-all">
             {shareUrl}
           </p>
         </div>
+
+        {/* Feedback / Notification banner */}
+        {notification && (
+          <div className="p-2.5 rounded-xl bg-emerald-950/80 border border-emerald-700 text-emerald-300 text-xs font-black text-center animate-fade-in flex items-center justify-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span>{notification}</span>
+          </div>
+        )}
 
         {/* Contenders Slot List */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between text-xs font-bold text-slate-400 px-1">
             <span>Joined Contenders</span>
-            <span className="font-mono text-amber-400">
+            <span className="font-mono text-amber-400 font-bold">
               {playerCount} / {maxPlayers} Players
             </span>
           </div>
