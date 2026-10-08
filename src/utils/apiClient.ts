@@ -53,18 +53,18 @@ function generateRoomCode(): string {
 }
 
 // Helper to check if server responded with valid JSON
-async function tryFetchJson(url: string, options?: RequestInit): Promise<{ ok: boolean; data?: any }> {
+async function tryFetchJson(url: string, options?: RequestInit): Promise<{ ok: boolean; hasServer: boolean; data?: any }> {
   try {
     const res = await fetch(url, options);
     const contentType = res.headers.get('content-type') || '';
-    if (res.ok && contentType.includes('application/json')) {
+    if (contentType.includes('application/json')) {
       const data = await res.json();
-      return { ok: true, data };
+      return { ok: res.ok, hasServer: true, data };
     }
   } catch (err) {
     // Network or server unreachable -> use fallback
   }
-  return { ok: false };
+  return { ok: false, hasServer: false };
 }
 
 export const gameApi = {
@@ -277,7 +277,15 @@ export const gameApi = {
       }),
     });
 
-    if (serverAttempt.ok && serverAttempt.data) {
+    if (serverAttempt.hasServer && serverAttempt.data) {
+      if (serverAttempt.data.room) {
+        localRooms.set(serverAttempt.data.room.code, serverAttempt.data.room);
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem(`snakes_room_${serverAttempt.data.room.code}`, JSON.stringify(serverAttempt.data.room));
+          } catch (e) {}
+        }
+      }
       return serverAttempt.data;
     }
 
@@ -342,7 +350,15 @@ export const gameApi = {
       }),
     });
 
-    if (serverAttempt.ok && serverAttempt.data) {
+    if (serverAttempt.hasServer && serverAttempt.data) {
+      if (serverAttempt.data.room) {
+        localRooms.set(code, serverAttempt.data.room);
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
+          } catch (e) {}
+        }
+      }
       return serverAttempt.data;
     }
 
@@ -409,7 +425,15 @@ export const gameApi = {
     const code = roomCode.trim().toUpperCase();
     const serverAttempt = await tryFetchJson(`/api/room/state?room_code=${code}&player_id=${playerId ?? ''}`);
 
-    if (serverAttempt.ok && serverAttempt.data) {
+    if (serverAttempt.hasServer && serverAttempt.data) {
+      if (serverAttempt.data.room) {
+        localRooms.set(code, serverAttempt.data.room);
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
+          } catch (e) {}
+        }
+      }
       return serverAttempt.data;
     }
 
@@ -446,7 +470,15 @@ export const gameApi = {
       body: JSON.stringify({ room_code: code, player_id: playerId }),
     });
 
-    if (serverAttempt.ok && serverAttempt.data) {
+    if (serverAttempt.hasServer && serverAttempt.data) {
+      if (serverAttempt.data.room) {
+        localRooms.set(code, serverAttempt.data.room);
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
+          } catch (e) {}
+        }
+      }
       return serverAttempt.data;
     }
 
@@ -485,7 +517,15 @@ export const gameApi = {
       body: JSON.stringify({ room_code: code, player_id: playerId, fixed_dice: fixedDice }),
     });
 
-    if (serverAttempt.ok && serverAttempt.data) {
+    if (serverAttempt.hasServer && serverAttempt.data) {
+      if (serverAttempt.data.room) {
+        localRooms.set(code, serverAttempt.data.room);
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
+          } catch (e) {}
+        }
+      }
       return serverAttempt.data;
     }
 
@@ -612,7 +652,15 @@ export const gameApi = {
       body: JSON.stringify({ room_code: code, player_id: playerId }),
     });
 
-    if (serverAttempt.ok && serverAttempt.data) {
+    if (serverAttempt.hasServer && serverAttempt.data) {
+      if (serverAttempt.data.room) {
+        localRooms.set(code, serverAttempt.data.room);
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
+          } catch (e) {}
+        }
+      }
       return serverAttempt.data;
     }
 

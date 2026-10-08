@@ -53,16 +53,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [joinPlayerName, setJoinPlayerName] = useState('Guest');
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [hasInviteFromUrl, setHasInviteFromUrl] = useState(false);
 
-  // Check URL query param for ?room=CODE
+  // Helper to extract clean alphanumeric room code from raw input or full URLs
+  const extractRoomCode = (raw: string): string => {
+    if (!raw) return '';
+    const trimmed = raw.trim();
+    try {
+      const match = trimmed.match(/[?&](?:room|join|code)=([a-zA-Z0-9]+)/i);
+      if (match && match[1]) {
+        return match[1].toUpperCase();
+      }
+    } catch (e) {}
+    return trimmed.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase();
+  };
+
+  // Check URL query param for ?room=CODE or ?join=CODE
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      const roomParam = params.get('room') || params.get('join');
+      const roomParam = params.get('room') || params.get('join') || params.get('code');
       if (roomParam) {
-        setSelectedMainMode('remote');
-        setRemoteSubTab('join');
-        setJoinRoomCode(roomParam.trim().toUpperCase());
+        const clean = extractRoomCode(roomParam);
+        if (clean) {
+          setSelectedMainMode('remote');
+          setRemoteSubTab('join');
+          setJoinRoomCode(clean);
+          setHasInviteFromUrl(true);
+        }
       }
     }
   }, []);
@@ -173,7 +191,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const handleJoinRemoteRoom = async () => {
     sound.playClick();
-    if (!joinRoomCode.trim()) {
+    const cleanCode = extractRoomCode(joinRoomCode);
+    if (!cleanCode || cleanCode.length < 4) {
       setRemoteError('Please enter a valid 5-character Room Code.');
       return;
     }
@@ -182,7 +201,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     setRemoteError(null);
     try {
       const data = await gameApi.joinRoom(
-        joinRoomCode.trim().toUpperCase(),
+        cleanCode,
         joinPlayerName.trim() || 'Guest'
       );
 
@@ -190,11 +209,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       if (data.success) {
         onOpenRemoteLobby(data.room_code, data.player_id, false);
       } else {
-        setRemoteError(data.error || 'Failed to join room');
+        setRemoteError(data.error || 'Failed to join room. Please check the code.');
       }
-    } catch (err) {
+    } catch (err: any) {
       setIsCreatingRoom(false);
-      setRemoteError('Failed to join room');
+      setRemoteError(err?.message || 'Failed to join room');
     }
   };
 
@@ -244,6 +263,48 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
       {/* Main Landing Content Container */}
       <main className="w-full max-w-3xl mx-auto px-4 py-6 flex flex-col gap-6">
+        {/* Prominent Invite Link Banner when opening via shared link (?room=CODE) */}
+        {hasInviteFromUrl && joinRoomCode && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-amber-400/15 to-yellow-500/20 border-2 border-amber-400 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-amber-500 text-slate-950 font-black flex items-center justify-center text-xl shadow-lg shrink-0">
+                🎮
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-black uppercase text-amber-400 tracking-wider">
+                    Online Room Invite
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-lg bg-amber-400/20 text-amber-300 font-mono font-black text-sm tracking-widest border border-amber-400/40">
+                    {joinRoomCode}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-200 mt-1">
+                  You've been invited by the host! Enter your name and join the arena.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <input
+                type="text"
+                value={joinPlayerName}
+                onChange={(e) => setJoinPlayerName(e.target.value)}
+                maxLength={14}
+                placeholder="Your Name"
+                className="flex-1 sm:w-36 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-amber-400"
+              />
+              <button
+                onClick={handleJoinRemoteRoom}
+                disabled={isCreatingRoom}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 cursor-pointer whitespace-nowrap active:scale-95 disabled:opacity-50 transition-all border-b-2 border-amber-600"
+              >
+                <span>{isCreatingRoom ? 'Joining...' : '🚀 Join Room Now'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Animated Live Game Showcase Hero */}
         <AnimatedBoardHero />
 
@@ -642,15 +703,44 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               ) : (
                 <div className="flex flex-col gap-3">
                   <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col gap-1.5">
-                    <label className="text-[11px] font-bold text-amber-400">
-                      🔑 Enter 5-Letter Room Code
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-amber-400">
+                        🔑 Enter 5-Letter Room Code or Paste Link
+                      </label>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          sound.playClick();
+                          try {
+                            if (navigator.clipboard && navigator.clipboard.readText) {
+                              const text = await navigator.clipboard.readText();
+                              const clean = extractRoomCode(text);
+                              if (clean) {
+                                setJoinRoomCode(clean);
+                                setRemoteError(null);
+                              }
+                            }
+                          } catch (e) {}
+                        }}
+                        className="text-[10px] font-bold text-amber-300 hover:text-amber-200 px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 cursor-pointer flex items-center gap-1 transition-colors"
+                      >
+                        <span>📋 Paste</span>
+                      </button>
+                    </div>
                     <input
                       type="text"
                       value={joinRoomCode}
-                      onChange={(e) => setJoinRoomCode(e.target.value.toUpperCase())}
-                      maxLength={8}
-                      placeholder="e.g. 7KF9A"
+                      onChange={(e) => setJoinRoomCode(extractRoomCode(e.target.value))}
+                      onPaste={(e) => {
+                        const pasted = e.clipboardData.getData('text');
+                        const clean = extractRoomCode(pasted);
+                        if (clean) {
+                          e.preventDefault();
+                          setJoinRoomCode(clean);
+                        }
+                      }}
+                      maxLength={12}
+                      placeholder="e.g. 7KF9A or full link"
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm font-black text-amber-300 font-mono tracking-widest focus:outline-none focus:border-amber-400 uppercase"
                     />
                   </div>
