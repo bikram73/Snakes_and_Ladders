@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](./LICENSE)
 [![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/bikram73/Snakes_and_Ladders)
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white)](https://snakes-and-ladderss.netlify.app/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -485,7 +485,25 @@ Contributions, issues, and feature requests are welcome!
 <a id="license"></a>
 ## 📜 License
 
-This project is licensed under the **MIT License** — feel free to use, modify, distribute, and build upon this code for personal or commercial projects.
+This project is open source and available under the terms of the **[MIT License](./LICENSE)**.
+
+```
+MIT License
+
+Copyright (c) 2026 Bikram (https://github.com/bikram73)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+```
+
+See the full **[LICENSE](./LICENSE)** file for complete details. You are free to use, modify, distribute, and build upon this code for personal or commercial projects.
 
 ---
 
