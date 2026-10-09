@@ -79,12 +79,23 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
     };
   }, [currentCode, playerId, onStartMatch]);
 
+  // Keep browser address bar in sync so copying the browser URL also works
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.history && window.history.replaceState && currentCode) {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('room', currentCode);
+        window.history.replaceState({}, '', url.toString());
+      } catch (e) {}
+    }
+  }, [currentCode]);
+
   // Build clean, robust shareable URL
   const getShareUrl = () => {
     if (typeof window === 'undefined') return `?room=${currentCode}`;
     const origin = window.location.origin;
-    const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
-    return `${origin}${pathname === '/' ? '' : pathname}/?room=${currentCode}`;
+    const pathname = window.location.pathname.replace(/\/+$/, '') || '';
+    return `${origin}${pathname}/?room=${currentCode}`;
   };
 
   const shareUrl = getShareUrl();
@@ -183,6 +194,13 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
           prevPlayerCountRef.current = data.room.players.length;
         }
         if (onRegenerateCode) onRegenerateCode(data.room_code);
+        if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.set('room', data.room_code);
+            window.history.replaceState({}, '', url.toString());
+          } catch (e) {}
+        }
         setNotification(`✨ New Room Code Generated: ${data.room_code}`);
         setTimeout(() => setNotification(null), 3000);
       } else {
@@ -192,6 +210,20 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
       setIsRegenerating(false);
       setErrorMsg('Failed to generate new room code');
     }
+  };
+
+  const handleLeave = () => {
+    sound.playClick();
+    if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('room');
+        url.searchParams.delete('join');
+        url.searchParams.delete('code');
+        window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+      } catch (e) {}
+    }
+    onLeaveRoom();
   };
 
   const handleHostStart = async () => {
@@ -232,10 +264,7 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
           </div>
 
           <button
-            onClick={() => {
-              sound.playClick();
-              onLeaveRoom();
-            }}
+            onClick={handleLeave}
             className="text-xs font-bold text-slate-400 hover:text-white px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 cursor-pointer flex items-center gap-1 transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Leave

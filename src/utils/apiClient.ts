@@ -351,15 +351,49 @@ export const gameApi = {
     });
 
     if (serverAttempt.hasServer && serverAttempt.data) {
-      if (serverAttempt.data.room) {
-        localRooms.set(code, serverAttempt.data.room);
-        if (typeof localStorage !== 'undefined') {
-          try {
-            localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
-          } catch (e) {}
+      if (serverAttempt.data.success) {
+        if (serverAttempt.data.room) {
+          localRooms.set(code, serverAttempt.data.room);
+          if (typeof localStorage !== 'undefined') {
+            try {
+              localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
+            } catch (e) {}
+          }
         }
+        return serverAttempt.data;
       }
-      return serverAttempt.data;
+
+      // If server does not have the room, check local cache (e.g. server was restarted or tab was opened)
+      let localFound = localRooms.get(code);
+      if (!localFound && typeof localStorage !== 'undefined') {
+        try {
+          const stored = localStorage.getItem(`snakes_room_${code}`);
+          if (stored) localFound = JSON.parse(stored);
+        } catch (e) {}
+      }
+
+      if (localFound) {
+        try {
+          await tryFetchJson('/api/room/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room: localFound }),
+          });
+          const retry = await tryFetchJson('/api/room/join', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              room_code: code,
+              player_name: playerName,
+            }),
+          });
+          if (retry.hasServer && retry.data && retry.data.success) {
+            return retry.data;
+          }
+        } catch (e) {}
+      } else {
+        return serverAttempt.data;
+      }
     }
 
     // Static Netlify Fallback
@@ -426,15 +460,37 @@ export const gameApi = {
     const serverAttempt = await tryFetchJson(`/api/room/state?room_code=${code}&player_id=${playerId ?? ''}`);
 
     if (serverAttempt.hasServer && serverAttempt.data) {
-      if (serverAttempt.data.room) {
-        localRooms.set(code, serverAttempt.data.room);
-        if (typeof localStorage !== 'undefined') {
-          try {
-            localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
-          } catch (e) {}
+      if (serverAttempt.data.success) {
+        if (serverAttempt.data.room) {
+          localRooms.set(code, serverAttempt.data.room);
+          if (typeof localStorage !== 'undefined') {
+            try {
+              localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
+            } catch (e) {}
+          }
         }
+        return serverAttempt.data;
       }
-      return serverAttempt.data;
+
+      // Check if room is in local cache and restore to server
+      let localFound = localRooms.get(code);
+      if (!localFound && typeof localStorage !== 'undefined') {
+        try {
+          const stored = localStorage.getItem(`snakes_room_${code}`);
+          if (stored) localFound = JSON.parse(stored);
+        } catch (e) {}
+      }
+      if (localFound) {
+        try {
+          await tryFetchJson('/api/room/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room: localFound }),
+          });
+        } catch (e) {}
+      } else {
+        return serverAttempt.data;
+      }
     }
 
     // Static Netlify Fallback

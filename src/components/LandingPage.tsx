@@ -59,20 +59,54 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const extractRoomCode = (raw: string): string => {
     if (!raw) return '';
     const trimmed = raw.trim();
-    try {
-      const match = trimmed.match(/[?&](?:room|join|code)=([a-zA-Z0-9]+)/i);
-      if (match && match[1]) {
-        return match[1].toUpperCase();
+
+    // 1. Look for ?room=CODE, ?join=CODE, &code=CODE in query strings or hashes
+    const paramMatch = trimmed.match(/[?&#](?:room|join|code)=([a-zA-Z0-9]+)/i);
+    if (paramMatch && paramMatch[1]) {
+      return paramMatch[1].slice(0, 6).toUpperCase();
+    }
+
+    // 2. Look for /room/CODE or /join/CODE in URL paths
+    const pathMatch = trimmed.match(/(?:\/room\/|\/join\/)([a-zA-Z0-9]+)/i);
+    if (pathMatch && pathMatch[1]) {
+      return pathMatch[1].slice(0, 6).toUpperCase();
+    }
+
+    // 3. Look for "code: CODE" or "room: CODE" or "code is CODE" in pasted messages
+    const textMatch = trimmed.match(/(?:code|room)(?:\s+is|\s*:|\s*=\s*|\s+)\s*([a-zA-Z0-9]{4,6})/i);
+    if (textMatch && textMatch[1]) {
+      return textMatch[1].toUpperCase();
+    }
+
+    // 4. If it looks like a URL (starts with http, https, www, or contains ://) but didn't match:
+    // Try finding a 4-6 char token at the very end of URL path
+    if (/^(?:https?:\/\/|www\.)/i.test(trimmed) || trimmed.includes('://')) {
+      const endMatch = trimmed.match(/\/([a-zA-Z0-9]{4,6})(?:[/?#]|$)/);
+      if (endMatch && endMatch[1]) {
+        return endMatch[1].toUpperCase();
       }
-    } catch (e) {}
+      return '';
+    }
+
+    // 5. Direct room code typed or pasted: strip spaces/symbols, limit to 6 chars
     return trimmed.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase();
   };
 
-  // Check URL query param for ?room=CODE or ?join=CODE
+  // Check URL query param or hash for ?room=CODE or ?join=CODE
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const roomParam = params.get('room') || params.get('join') || params.get('code');
+      const searchParams = new URLSearchParams(window.location.search);
+      let roomParam = searchParams.get('room') || searchParams.get('join') || searchParams.get('code');
+
+      // Also support hash routing (#/?room=CODE or #room=CODE)
+      if (!roomParam && window.location.hash) {
+        const hash = window.location.hash;
+        const match = hash.match(/[?&#](?:room|join|code)=([a-zA-Z0-9]+)/i) || hash.match(/#(?:room\/)?([a-zA-Z0-9]{4,6})/i);
+        if (match && match[1]) {
+          roomParam = match[1];
+        }
+      }
+
       if (roomParam) {
         const clean = extractRoomCode(roomParam);
         if (clean) {
@@ -730,19 +764,37 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     <input
                       type="text"
                       value={joinRoomCode}
-                      onChange={(e) => setJoinRoomCode(extractRoomCode(e.target.value))}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const clean = extractRoomCode(val);
+                        setJoinRoomCode(clean);
+                        if (remoteError) setRemoteError(null);
+                      }}
                       onPaste={(e) => {
                         const pasted = e.clipboardData.getData('text');
                         const clean = extractRoomCode(pasted);
                         if (clean) {
                           e.preventDefault();
                           setJoinRoomCode(clean);
+                          if (remoteError) setRemoteError(null);
                         }
                       }}
-                      maxLength={12}
-                      placeholder="e.g. 7KF9A or full link"
+                      maxLength={250}
+                      placeholder="e.g. 7KF9A or paste invite link"
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm font-black text-amber-300 font-mono tracking-widest focus:outline-none focus:border-amber-400 uppercase"
                     />
+                    {joinRoomCode && joinRoomCode.length >= 4 ? (
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 pt-0.5">
+                        <span>✓ Code ready:</span>
+                        <span className="font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                          {joinRoomCode}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-slate-500 pt-0.5">
+                        Paste the full invite link or type the 5-letter room code from your host.
+                      </span>
+                    )}
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col gap-1.5">
@@ -762,8 +814,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               )}
 
               {remoteError && (
-                <div className="p-2.5 rounded-xl bg-rose-950/80 border border-rose-800 text-rose-300 text-xs font-bold text-center">
-                  {remoteError}
+                <div className="p-3 rounded-xl bg-rose-950/90 border border-rose-800 text-rose-200 text-xs font-bold text-center animate-fade-in flex flex-col gap-1 shadow-lg">
+                  <span className="text-rose-400 font-black">⚠️ Connection Error</span>
+                  <span>{remoteError}</span>
                 </div>
               )}
             </div>
@@ -831,11 +884,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           {selectedMainMode === 'remote' ? (
             <button
               onClick={remoteSubTab === 'host' ? handleCreateRemoteRoom : handleJoinRemoteRoom}
-              disabled={isCreatingRoom}
-              className="w-full py-4 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-lg uppercase tracking-wider rounded-2xl shadow-2xl shadow-amber-500/25 flex items-center justify-center gap-3 transition-transform active:scale-98 cursor-pointer border-b-4 border-amber-600 disabled:opacity-60"
+              disabled={isCreatingRoom || (remoteSubTab === 'join' && joinRoomCode.length < 4)}
+              className="w-full py-4 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-lg uppercase tracking-wider rounded-2xl shadow-2xl shadow-amber-500/25 flex items-center justify-center gap-3 transition-transform active:scale-98 cursor-pointer border-b-4 border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span>🌐</span>
-              <span>{remoteSubTab === 'host' ? 'CREATE ONLINE ROOM & GET CODE' : 'JOIN ONLINE ROOM NOW'}</span>
+              <span>
+                {isCreatingRoom
+                  ? 'CONNECTING TO ONLINE ROOM...'
+                  : remoteSubTab === 'host'
+                  ? 'CREATE ONLINE ROOM & GET CODE'
+                  : joinRoomCode.length < 4
+                  ? 'ENTER 5-LETTER CODE TO JOIN'
+                  : 'JOIN ONLINE ROOM NOW'}
+              </span>
             </button>
           ) : (
             <button

@@ -1,6 +1,7 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -10,6 +11,36 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+// Persistent disk storage for rooms across tsx/process reloads
+const ROOMS_CACHE_FILE = path.join(process.cwd(), '.rooms_cache.json');
+
+function loadRoomsFromDisk(map: Map<string, OnlineRoom>) {
+  try {
+    if (fs.existsSync(ROOMS_CACHE_FILE)) {
+      const data = fs.readFileSync(ROOMS_CACHE_FILE, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) {
+        for (const room of parsed) {
+          if (room && room.code) {
+            map.set(room.code.toUpperCase(), room);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // Ignore cache error
+  }
+}
+
+function saveRoomsToDisk(map: Map<string, OnlineRoom>) {
+  try {
+    const list = Array.from(map.values());
+    fs.writeFileSync(ROOMS_CACHE_FILE, JSON.stringify(list, null, 2), 'utf-8');
+  } catch (e) {
+    // Ignore cache error
+  }
+}
 
 // Server-authoritative Game Engine in Backend
 const SNAKES: Record<number, number> = {
@@ -101,6 +132,7 @@ export interface OnlineRoom {
 
 const activeGames = new Map<string, GameSession>();
 const activeRooms = new Map<string, OnlineRoom>();
+loadRoomsFromDisk(activeRooms);
 
 function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -340,7 +372,7 @@ app.post('/api/room/create', (req, res) => {
 
   const hostPlayer: PlayerState = {
     id: 0,
-    name: host_name.trim() || 'Host',
+    name: (host_name || '').trim() || 'Host',
     position: 0,
     is_computer: false,
     color: COLOR_MAP[0].color,
@@ -367,6 +399,7 @@ app.post('/api/room/create', (req, res) => {
   };
 
   activeRooms.set(roomCode, room);
+  saveRoomsToDisk(activeRooms);
 
   res.json({
     success: true,
@@ -379,34 +412,66 @@ app.post('/api/room/create', (req, res) => {
 // Guest joins an existing room
 app.post('/api/room/join', (req, res) => {
   const { room_code, player_name = 'Guest' } = req.body || {};
-  const code = (room_code || '').trim().toUpperCase();
+  const code = (room_code || '').trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+  if (!code) {
+    return res.status(400).json({
+      success: false,
+      error: 'Please enter a valid 5-character Room Code.',
+    });
+  }
+
+  // Ensure fresh memory from disk cache
+  if (!activeRooms.has(code)) {
+    loadRoomsFromDisk(activeRooms);
+  }
+
   const room = activeRooms.get(code);
 
   if (!room) {
     return res.status(404).json({
       success: false,
-      error: `Room code "${code}" not found. Check the code or create a new room!`,
+      error: `Room code "${code}" not found. Verify the 5-letter code or create a new room!`,
     });
   }
 
+  const cleanName = (player_name || '').trim() || 'Guest';
+
+  // 1. Check if this player is already in the room (reconnection support)
+  const existingPlayer = room.players.find(
+    (p) => p.name.trim().toLowerCase() === cleanName.toLowerCase()
+  );
+
+  if (existingPlayer) {
+    return res.json({
+      success: true,
+      room_code: code,
+      player_id: existingPlayer.id,
+      room,
+      reconnected: true,
+    });
+  }
+
+  // 2. Prevent non-members from joining an in-progress match
   if (room.status !== 'lobby') {
     return res.status(400).json({
       success: false,
-      error: 'This match has already started!',
+      error: 'This match is already in progress and cannot accept new contenders.',
     });
   }
 
+  // 3. Prevent exceeding capacity
   if (room.players.length >= room.max_players) {
     return res.status(400).json({
       success: false,
-      error: `Room is full (${room.players.length}/${room.max_players} players).`,
+      error: `Room is currently full (${room.players.length}/${room.max_players} players).`,
     });
   }
 
   const newId = room.players.length;
   const newPlayer: PlayerState = {
     id: newId,
-    name: player_name.trim() || `Player ${newId + 1}`,
+    name: cleanName,
     position: 0,
     is_computer: false,
     color: COLOR_MAP[newId % COLOR_MAP.length].color,
@@ -415,6 +480,7 @@ app.post('/api/room/join', (req, res) => {
 
   room.players.push(newPlayer);
   room.last_updated = Date.now();
+  saveRoomsToDisk(activeRooms);
 
   res.json({
     success: true,
@@ -424,10 +490,47 @@ app.post('/api/room/join', (req, res) => {
   });
 });
 
+// Sync/Restore client room state onto server
+app.post('/api/room/sync', (req, res) => {
+  const { room } = req.body || {};
+  if (room && room.code) {
+    const code = room.code.trim().toUpperCase();
+    activeRooms.set(code, room);
+    saveRoomsToDisk(activeRooms);
+    return res.json({ success: true, room });
+  }
+  res.status(400).json({ success: false, error: 'Invalid room payload' });
+});
+
+// Check if a room code exists
+app.get('/api/room/check', (req, res) => {
+  const code = ((req.query.room_code as string) || '').trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  if (!activeRooms.has(code)) {
+    loadRoomsFromDisk(activeRooms);
+  }
+  const room = activeRooms.get(code);
+  if (!room) {
+    return res.status(404).json({ exists: false, error: `Room code "${code}" not found.` });
+  }
+  res.json({
+    exists: true,
+    code: room.code,
+    status: room.status,
+    player_count: room.players.length,
+    max_players: room.max_players,
+    host_name: room.players[0]?.name || 'Host',
+  });
+});
+
 // Get real-time room state
 app.get('/api/room/state', (req, res) => {
-  const code = ((req.query.room_code as string) || '').trim().toUpperCase();
+  const code = ((req.query.room_code as string) || '').trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
   const playerId = req.query.player_id !== undefined ? Number(req.query.player_id) : undefined;
+
+  if (!activeRooms.has(code)) {
+    loadRoomsFromDisk(activeRooms);
+  }
+
   const room = activeRooms.get(code);
 
   if (!room) {
@@ -471,6 +574,7 @@ app.post('/api/room/start', (req, res) => {
   room.game_over = false;
   room.winner = null;
   room.last_updated = Date.now();
+  saveRoomsToDisk(activeRooms);
 
   res.json({
     success: true,
@@ -565,6 +669,7 @@ app.post('/api/room/roll', (req, res) => {
   });
 
   room.last_updated = Date.now();
+  saveRoomsToDisk(activeRooms);
 
   res.json({
     success: true,
@@ -606,6 +711,7 @@ app.post('/api/room/restart', (req, res) => {
   room.last_dice = null;
   room.move_history = [];
   room.last_updated = Date.now();
+  saveRoomsToDisk(activeRooms);
 
   res.json({
     success: true,

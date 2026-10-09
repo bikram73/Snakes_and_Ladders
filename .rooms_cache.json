@@ -1,0 +1,37 @@
+[
+  {
+    "code": "FTFDT",
+    "host_id": 0,
+    "status": "lobby",
+    "max_players": 2,
+    "players": [
+      {
+        "id": 0,
+        "name": "Host1",
+        "position": 0,
+        "is_computer": false,
+        "color": "red",
+        "avatar": "🔴"
+      },
+      {
+        "id": 1,
+        "name": "Guest Bob",
+        "position": 0,
+        "is_computer": false,
+        "color": "blue",
+        "avatar": "🔵"
+      }
+    ],
+    "current_player": 0,
+    "game_over": false,
+    "winner": null,
+    "last_dice": null,
+    "rules": {
+      "board_size": 100,
+      "exact_finish": true,
+      "extra_turn_on_six": true
+    },
+    "move_history": [],
+    "last_updated": 1791436030882
+  }
+]
