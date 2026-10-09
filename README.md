@@ -3,14 +3,21 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/bikram73/Snakes_and_Ladders)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white)](https://snakes-and-ladderss.netlify.app/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19.0-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.x-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
-[![Netlify Status](https://img.shields.io/badge/Netlify-Ready-00C7B7?style=for-the-badge&logo=netlify&logoColor=white)](https://www.netlify.com/)
 
 **A modern, high-octane 3D board game experience featuring dynamic predatory Shark themes, serpentine SVG coordinates, realistic 3D rolling dice physics, AI bots, local pass & play, online multiplayer rooms, and zero-dependency Web Audio.**
+
+<br />
+
+### 🔗 Quick Links
+🌐 **Live Web Application**: [https://snakes-and-ladderss.netlify.app/](https://snakes-and-ladderss.netlify.app/)  
+🐙 **GitHub Source Repository**: [https://github.com/bikram73/Snakes_and_Ladders](https://github.com/bikram73/Snakes_and_Ladders)
 
 </div>
 
@@ -183,8 +190,8 @@ snakes-and-ladders/
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-username/snakes-and-ladders-shark-arena.git
-   cd snakes-and-ladders-shark-arena
+   git clone https://github.com/bikram73/Snakes_and_Ladders.git
+   cd Snakes_and_Ladders
    ```
 
 2. **Install Node dependencies**:
