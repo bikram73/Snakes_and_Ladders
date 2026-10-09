@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { PRD_SNAKES_LIST, PRD_LADDERS_LIST } from '../utils/boardPresets';
-import { computeLadderGeometry, computeSnakeGeometry, getTileCoordinates } from '../utils/geometry';
-import { Trophy, Dices, Sparkles, Play, Pause, RotateCcw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { SharkThemeId, SharkLayoutPresetId } from '../types/game';
+import { SHARK_THEMES, SHARK_THEMES_LIST } from '../utils/sharkThemes';
+import { getSharkLayoutPreset } from '../utils/boardPresets';
+import { SharkSvgLayer } from './SharkSvgLayer';
+import { getTileCoordinates } from '../utils/geometry';
+import { Play, Pause, Palette } from 'lucide-react';
 
 interface SimPawn {
   id: number;
@@ -20,34 +23,36 @@ const INITIAL_PAWNS: SimPawn[] = [
   { id: 3, name: 'Echo', avatar: '⚡', color: 'yellow', bg: 'bg-amber-400', ring: 'ring-amber-300', position: 12 },
 ];
 
-export const AnimatedBoardHero: React.FC = () => {
+interface AnimatedBoardHeroProps {
+  initialThemeId?: SharkThemeId;
+  initialLayoutId?: SharkLayoutPresetId;
+  onThemeSelect?: (id: SharkThemeId) => void;
+}
+
+export const AnimatedBoardHero: React.FC<AnimatedBoardHeroProps> = ({
+  initialThemeId = 'great-white',
+  initialLayoutId = 'reef-patrol',
+  onThemeSelect,
+}) => {
+  const [selectedThemeId, setSelectedThemeId] = useState<SharkThemeId>(initialThemeId);
+  const [selectedLayoutId, setSelectedLayoutId] = useState<SharkLayoutPresetId>(initialLayoutId);
+
+  const currentTheme = SHARK_THEMES[selectedThemeId] || SHARK_THEMES['great-white'];
+  const currentLayout = getSharkLayoutPreset(selectedLayoutId);
+
   const [pawns, setPawns] = useState<SimPawn[]>(INITIAL_PAWNS);
   const [activeTurnIdx, setActiveTurnIdx] = useState<number>(0);
   const [diceVal, setDiceVal] = useState<number>(4);
   const [isRolling, setIsRolling] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [activeBanner, setActiveBanner] = useState<{ text: string; type: 'ladder' | 'snake' | 'roll' | 'win' }>({
-    text: '🎲 Match in progress: Watch the live arena action!',
+    text: '🦈 Ocean match in progress: Watch live shark dives and diver climbs!',
     type: 'roll',
   });
   const [steppingPawnId, setSteppingPawnId] = useState<number | null>(null);
   const [steppingPos, setSteppingPos] = useState<number | null>(null);
 
-  // Precomputed SVG elements for 10x10 board
   const size = 10;
-  const ladderGeoms = React.useMemo(() => {
-    return PRD_LADDERS_LIST.map((l) => ({
-      ...l,
-      geom: computeLadderGeometry(l.bottom, l.top, size, 1000),
-    }));
-  }, [size]);
-
-  const snakeGeoms = React.useMemo(() => {
-    return PRD_SNAKES_LIST.map((s) => ({
-      ...s,
-      geom: computeSnakeGeometry(s.head, s.tail, size, 1000),
-    }));
-  }, [size]);
 
   // Turn simulation loop
   useEffect(() => {
@@ -83,30 +88,30 @@ export const AnimatedBoardHero: React.FC = () => {
       let bannerType: 'ladder' | 'snake' | 'roll' | 'win' = 'roll';
 
       // Check ladder
-      const ladder = PRD_LADDERS_LIST.find((l) => l.bottom === targetPos);
+      const ladder = currentLayout.laddersList.find((l) => l.bottom === targetPos);
       if (ladder) {
         await new Promise((r) => setTimeout(r, 250));
         finalPos = ladder.top;
         setSteppingPos(finalPos);
-        bannerText = `🪜 ${curr.name} climbed ladder ${ladder.bottom} ➔ ${ladder.top}!`;
+        bannerText = `${currentTheme.ladderEmoji} ${curr.name} climbed ${currentTheme.ladderName} ${ladder.bottom} ➔ ${ladder.top}!`;
         bannerType = 'ladder';
         await new Promise((r) => setTimeout(r, 450));
       }
 
-      // Check snake
-      const snake = PRD_SNAKES_LIST.find((s) => s.head === targetPos);
-      if (snake) {
+      // Check shark hazard
+      const shark = currentLayout.snakesList.find((s) => s.head === targetPos);
+      if (shark) {
         await new Promise((r) => setTimeout(r, 250));
-        finalPos = snake.tail;
+        finalPos = shark.tail;
         setSteppingPos(finalPos);
-        bannerText = `🐍 ${curr.name} bit by snake ${snake.head} ➔ slid to ${snake.tail}!`;
+        bannerText = `${currentTheme.hazardEmoji} ${curr.name} chomped by ${currentTheme.hazardName} ${shark.head} ➔ dragged to ${shark.tail}!`;
         bannerType = 'snake';
         await new Promise((r) => setTimeout(r, 450));
       }
 
       // Check win
       if (finalPos === 100) {
-        bannerText = `🏆 ${curr.avatar} ${curr.name} conquered square 100!`;
+        bannerText = `🏆 ${curr.avatar} ${curr.name} conquered ${currentTheme.finishText}!`;
         bannerType = 'win';
       }
 
@@ -122,13 +127,13 @@ export const AnimatedBoardHero: React.FC = () => {
     }, 2800);
 
     return () => clearInterval(timer);
-  }, [pawns, activeTurnIdx, isPaused]);
+  }, [pawns, activeTurnIdx, isPaused, currentLayout, currentTheme]);
 
   // Group pawns by tile for clustered rendering
   const pawnsByTile = React.useMemo(() => {
     const map = new Map<number, SimPawn[]>();
     pawns.forEach((p) => {
-      const pos = (p.id === steppingPawnId && steppingPos !== null) ? steppingPos : p.position;
+      const pos = p.id === steppingPawnId && steppingPos !== null ? steppingPos : p.position;
       if (pos >= 1 && pos <= 100) {
         if (!map.has(pos)) map.set(pos, []);
         map.get(pos)!.push(p);
@@ -140,55 +145,77 @@ export const AnimatedBoardHero: React.FC = () => {
   // Grid cells 1..100
   const gridCells = React.useMemo(() => {
     const cells = [];
-    for (let r = 0; r < 10; r++) {
-      for (let c = 0; c < 10; c++) {
-        const rowFromBottom = 9 - r;
-        const colInRow = (rowFromBottom % 2 === 0) ? c : (9 - c);
-        const tileNum = rowFromBottom * 10 + colInRow + 1;
-        cells.push({ tileNum, r, c });
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        const rowFromBottom = size - 1 - r;
+        const colInRow = rowFromBottom % 2 === 0 ? c : size - 1 - c;
+        const tileNum = rowFromBottom * size + colInRow + 1;
+        cells.push({ tileNum, row: r, col: c });
       }
     }
     return cells;
-  }, []);
+  }, [size]);
 
   const activePawn = pawns[activeTurnIdx] || pawns[0];
 
   return (
-    <div className="relative w-full rounded-3xl bg-gradient-to-b from-slate-900 via-slate-850 to-slate-950 border-2 border-amber-500/40 p-4 sm:p-6 shadow-2xl overflow-hidden flex flex-col gap-4">
-      {/* Decorative ambient lighting */}
+    <div className="relative w-full rounded-3xl bg-slate-900/90 border border-slate-800 p-4 sm:p-6 shadow-2xl overflow-hidden flex flex-col gap-4">
+      {/* Background Glow */}
       <div className="absolute -top-24 -left-24 w-60 h-60 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-24 -right-24 w-60 h-60 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Hero Header & Live Game Status Row */}
+      {/* Hero Header & Theme Switcher */}
       <div className="flex flex-wrap items-center justify-between gap-3 relative z-10 border-b border-slate-800 pb-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center text-xl shadow-lg border border-amber-300">
-            🐍
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-xl shadow-lg border border-cyan-300">
+            {currentTheme.icon}
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5">
-                Live Animated Grand Arena
+                Shark Board Arena Showcase
               </h2>
-              <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> LIVE MATCH
+              <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 animate-pulse flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" /> LIVE ARENA
               </span>
             </div>
             <p className="text-[11px] text-slate-400">
-              Watch real-time dice rolls, ladder ascents, and snake slips on the 100-tile board
+              {currentTheme.name} • {currentTheme.tagline}
             </p>
           </div>
         </div>
 
-        {/* Demo Controls */}
-        <div className="flex items-center gap-2">
+        {/* Theme pills switcher */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1 max-w-full">
+          {SHARK_THEMES_LIST.map((th) => {
+            const isSel = th.id === selectedThemeId;
+            return (
+              <button
+                key={th.id}
+                onClick={() => {
+                  setSelectedThemeId(th.id);
+                  if (onThemeSelect) onThemeSelect(th.id);
+                }}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer border shrink-0 ${
+                  isSel
+                    ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200 ring-1 ring-cyan-400/50 scale-105'
+                    : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-white'
+                }`}
+                title={th.speciesTitle}
+              >
+                <span>{th.icon}</span>
+                <span className="hidden sm:inline">{th.name.split(' ')[0]}</span>
+              </button>
+            );
+          })}
+
           <button
             onClick={() => setIsPaused(!isPaused)}
-            className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 border border-slate-700"
-            title={isPaused ? 'Resume Demo Simulation' : 'Pause Demo Simulation'}
+            className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 border border-slate-700 shrink-0 ml-1"
+            title={isPaused ? 'Resume Demo' : 'Pause Demo'}
           >
-            {isPaused ? <Play className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" /> : <Pause className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
-            <span>{isPaused ? 'Play Demo' : 'Pause'}</span>
+            {isPaused ? <Play className="w-3 h-3 text-emerald-400" /> : <Pause className="w-3 h-3 text-amber-400" />}
+            <span className="text-[10px]">{isPaused ? 'Play' : 'Pause'}</span>
           </button>
         </div>
       </div>
@@ -196,10 +223,12 @@ export const AnimatedBoardHero: React.FC = () => {
       {/* Main Interactive Showcase Body: Mini Board on Left + Live 3D Dice Ticker on Right */}
       <div className="flex flex-col md:flex-row items-center justify-center gap-5 relative z-10">
         {/* The Animated 10x10 Board */}
-        <div className="relative w-full max-w-[340px] sm:max-w-[380px] aspect-square rounded-2xl overflow-hidden border-2 border-slate-700 bg-slate-900 p-1.5 shadow-2xl shrink-0">
+        <div
+          className={`relative w-full max-w-[340px] sm:max-w-[380px] aspect-square rounded-2xl overflow-hidden border-2 p-1.5 shadow-2xl shrink-0 transition-all duration-300 ${currentTheme.boardOuterBorder} ${currentTheme.boardOuterBg}`}
+        >
           {/* 10x10 Grid Cells */}
           <div
-            className="grid w-full h-full gap-0.5 rounded-lg overflow-hidden relative"
+            className={`grid w-full h-full gap-0.5 rounded-lg overflow-hidden relative ${currentTheme.boardInnerGridBg}`}
             style={{
               gridTemplateColumns: 'repeat(10, minmax(0, 1fr))',
               gridTemplateRows: 'repeat(10, minmax(0, 1fr))',
@@ -210,14 +239,14 @@ export const AnimatedBoardHero: React.FC = () => {
               const isStart = tileNum === 1;
               const isEven = (Math.floor((tileNum - 1) / 10) + (tileNum % 10)) % 2 === 0;
 
-              let cellBg = isEven ? 'bg-slate-800/80 text-slate-400' : 'bg-slate-850 text-slate-400';
-              if (isFinish) cellBg = 'bg-gradient-to-br from-amber-500 to-yellow-600 text-slate-950 font-black';
-              if (isStart) cellBg = 'bg-gradient-to-br from-emerald-700 to-teal-800 text-white font-bold';
+              let cellBg = isEven ? currentTheme.tileEvenBg : currentTheme.tileOddBg;
+              if (isFinish) cellBg = currentTheme.finishBg;
+              if (isStart) cellBg = currentTheme.startBg;
 
               return (
                 <div
                   key={tileNum}
-                  className={`relative flex items-center justify-center p-0.5 rounded-[2px] border border-slate-800/40 text-[7px] sm:text-[8px] font-bold ${cellBg}`}
+                  className={`relative flex items-center justify-center p-0.5 rounded-[2px] border text-[7px] sm:text-[8px] font-bold ${currentTheme.tileBorder} ${cellBg}`}
                 >
                   {isFinish ? '🏆' : isStart ? 'S' : tileNum}
                 </div>
@@ -225,72 +254,14 @@ export const AnimatedBoardHero: React.FC = () => {
             })}
           </div>
 
-          {/* SVG Layer for Snakes & Ladders */}
-          <svg
-            viewBox="0 0 1000 1000"
-            className="absolute inset-0 w-full h-full pointer-events-none p-1.5"
-            style={{ overflow: 'visible' }}
-          >
-            <defs>
-              <filter id="demoShadow" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="1" dy="3" stdDeviation="2" floodColor="#000" floodOpacity="0.7" />
-              </filter>
-            </defs>
-
-            {/* Ladders */}
-            <g filter="url(#demoShadow)">
-              {ladderGeoms.map((l) => (
-                <g key={l.id}>
-                  <line
-                    x1={l.geom.rail1Start.x}
-                    y1={l.geom.rail1Start.y}
-                    x2={l.geom.rail1End.x}
-                    y2={l.geom.rail1End.y}
-                    stroke="#eab308"
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                  />
-                  <line
-                    x1={l.geom.rail2Start.x}
-                    y1={l.geom.rail2Start.y}
-                    x2={l.geom.rail2End.x}
-                    y2={l.geom.rail2End.y}
-                    stroke="#eab308"
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                  />
-                  {l.geom.rungs.map((rung, idx) => (
-                    <line
-                      key={idx}
-                      x1={rung.start.x}
-                      y1={rung.start.y}
-                      x2={rung.end.x}
-                      y2={rung.end.y}
-                      stroke="#fef08a"
-                      strokeWidth="4"
-                      strokeLinecap="round"
-                    />
-                  ))}
-                </g>
-              ))}
-            </g>
-
-            {/* Snakes */}
-            <g filter="url(#demoShadow)">
-              {snakeGeoms.map((s, idx) => (
-                <g key={s.id}>
-                  <path
-                    d={s.geom.pathD}
-                    fill="none"
-                    stroke={idx % 2 === 0 ? '#ef4444' : '#f97316'}
-                    strokeWidth="15"
-                    strokeLinecap="round"
-                  />
-                  <circle cx={s.geom.head.x} cy={s.geom.head.y} r="10" fill="#dc2626" />
-                </g>
-              ))}
-            </g>
-          </svg>
+          {/* SVG Layer for Shark Hazards & Ladders */}
+          <SharkSvgLayer
+            theme={currentTheme}
+            snakes={currentLayout.snakesList}
+            ladders={currentLayout.laddersList}
+            boardSize={10}
+            dimension={1000}
+          />
 
           {/* Clustered Animated Pawns */}
           <div className="absolute inset-0 pointer-events-none p-1.5">
@@ -388,7 +359,7 @@ export const AnimatedBoardHero: React.FC = () => {
                   <div className="dice-face dice-face-6 bg-white border border-slate-300" style={{ width: '40px', height: '40px' }}>
                     <div className="flex justify-between w-6 h-6 p-0.5">
                       <div className="flex flex-col justify-between"><div className="w-1.5 h-1.5 bg-slate-800 rounded-full" /><div className="w-1.5 h-1.5 bg-slate-800 rounded-full" /><div className="w-1.5 h-1.5 bg-slate-800 rounded-full" /></div>
-                      <div className="flex flex-col justify-between"><div className="w-1.5 h-1.5 bg-slate-800 rounded-full" /><div className="w-1.5 h-1.5 bg-slate-800 rounded-full" /><div className="w-1.5 h-1.5 bg-slate-800 rounded-full" /></div>
+                      <div className="flex justify-between"><div className="w-1.5 h-1.5 bg-slate-800 rounded-full" /><div className="w-1.5 h-1.5 bg-slate-800 rounded-full" /><div className="w-1.5 h-1.5 bg-slate-800 rounded-full" /></div>
                     </div>
                   </div>
                 </div>
@@ -401,9 +372,10 @@ export const AnimatedBoardHero: React.FC = () => {
 
           {/* Standings list */}
           <div className="flex flex-col gap-1.5 bg-slate-950/60 p-3 rounded-2xl border border-slate-800">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
-              Live Contenders
-            </span>
+            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
+              <span>Live Contenders</span>
+              <span className="text-cyan-300 font-mono">{currentLayout.name}</span>
+            </div>
             <div className="grid grid-cols-2 gap-1.5">
               {pawns.map((p, idx) => (
                 <div
@@ -432,14 +404,24 @@ export const AnimatedBoardHero: React.FC = () => {
       <div className="relative z-10 w-full bg-slate-950/90 border border-slate-800 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs shadow-md">
         <div className="flex items-center gap-2 font-bold text-slate-200">
           <span className="text-base">
-            {activeBanner.type === 'ladder' ? '🪜' : activeBanner.type === 'snake' ? '🐍' : activeBanner.type === 'win' ? '🏆' : '🎲'}
+            {activeBanner.type === 'ladder' ? currentTheme.ladderEmoji : activeBanner.type === 'snake' ? currentTheme.hazardEmoji : activeBanner.type === 'win' ? '🏆' : '🎲'}
           </span>
-          <span className={activeBanner.type === 'ladder' ? 'text-emerald-300' : activeBanner.type === 'snake' ? 'text-rose-300' : activeBanner.type === 'win' ? 'text-amber-300 font-black' : 'text-slate-200'}>
+          <span
+            className={
+              activeBanner.type === 'ladder'
+                ? 'text-emerald-300'
+                : activeBanner.type === 'snake'
+                ? 'text-rose-300'
+                : activeBanner.type === 'win'
+                ? 'text-amber-300 font-black'
+                : 'text-slate-200'
+            }
+          >
             {activeBanner.text}
           </span>
         </div>
 
-        <span className="text-[10px] uppercase font-black text-amber-400/80 tracking-wider">
+        <span className="text-[10px] uppercase font-black text-cyan-400/90 tracking-wider">
           LIVE DEMO
         </span>
       </div>

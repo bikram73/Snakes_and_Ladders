@@ -46,19 +46,23 @@ export const RulesModal: React.FC<RulesModalProps> = ({ onClose }) => {
           </div>
           <div className="flex items-start gap-3 p-2.5 bg-slate-800/60 rounded-xl border border-slate-700/60">
             <span className="font-black text-emerald-400 font-mono">4.</span>
-            <span><strong>🪜 Ladder:</strong> Landing on the bottom of a ladder moves you upward.</span>
+            <span><strong>🪜 Ascent Ladder / Diving Cable:</strong> Landing at the bottom moves you upward to safety.</span>
           </div>
           <div className="flex items-start gap-3 p-2.5 bg-slate-800/60 rounded-xl border border-slate-700/60">
             <span className="font-black text-rose-400 font-mono">5.</span>
-            <span><strong>🐍 Snake:</strong> Landing on a snake head slides you downward to its tail.</span>
+            <span><strong>🦈 Shark Attack / Snake:</strong> Landing on a shark jaw chomps you and drags you down to its tail.</span>
           </div>
           <div className="flex items-start gap-3 p-2.5 bg-slate-800/60 rounded-xl border border-slate-700/60">
-            <span className="font-black text-amber-400 font-mono">6.</span>
+            <span className="font-black text-cyan-400 font-mono">6.</span>
+            <span><strong>🎨 Shark Board Themes & Layouts:</strong> Switch between 6 unique oceanic shark styles and 4 hazard layout presets anytime!</span>
+          </div>
+          <div className="flex items-start gap-3 p-2.5 bg-slate-800/60 rounded-xl border border-slate-700/60">
+            <span className="font-black text-amber-400 font-mono">7.</span>
             <span>You need an exact roll to reach 100. Overshooting keeps you at your current position.</span>
           </div>
           <div className="flex items-start gap-3 p-2.5 bg-slate-800/60 rounded-xl border border-slate-700/60">
-            <span className="font-black text-yellow-400 font-mono">7.</span>
-            <span>The first player to reach square 100 wins the game!</span>
+            <span className="font-black text-yellow-400 font-mono">8.</span>
+            <span>The first player to reach square 100 conquers the arena and wins the game!</span>
           </div>
         </div>
 

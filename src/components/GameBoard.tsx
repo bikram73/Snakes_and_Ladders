@@ -1,14 +1,22 @@
 import React, { useMemo } from 'react';
-import { Player } from '../types/game';
-import { PRD_SNAKES_LIST, PRD_LADDERS_LIST } from '../utils/boardPresets';
-import { computeLadderGeometry, computeSnakeGeometry, getTileCoordinates } from '../utils/geometry';
-import { Trophy, Flag } from 'lucide-react';
+import { Player, SharkThemeId, SharkLayoutPresetId } from '../types/game';
+import { getSharkLayoutPreset } from '../utils/boardPresets';
+import { SHARK_THEMES, SHARK_THEMES_LIST } from '../utils/sharkThemes';
+import { SharkSvgLayer } from './SharkSvgLayer';
+import { getTileCoordinates } from '../utils/geometry';
+import { Trophy, Flag, Palette, Sparkles, Compass } from 'lucide-react';
+import { sound } from '../utils/audio';
 
 interface GameBoardProps {
   players: Player[];
   currentPlayerId: number;
   steppingPlayerId: number | null;
   steppingTile: number | null;
+  sharkThemeId?: SharkThemeId;
+  sharkLayoutId?: SharkLayoutPresetId;
+  onChangeTheme?: (themeId: SharkThemeId) => void;
+  onChangeLayout?: (layoutId: SharkLayoutPresetId) => void;
+  onOpenThemeModal?: () => void;
 }
 
 export const GameBoard: React.FC<GameBoardProps> = ({
@@ -16,30 +24,21 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   currentPlayerId,
   steppingPlayerId,
   steppingTile,
+  sharkThemeId = 'great-white',
+  sharkLayoutId = 'reef-patrol',
+  onChangeTheme,
+  onChangeLayout,
+  onOpenThemeModal,
 }) => {
   const size = 10;
-
-  // Compute SVG Ladders
-  const ladderGeometries = useMemo(() => {
-    return PRD_LADDERS_LIST.map((l) => ({
-      ...l,
-      geom: computeLadderGeometry(l.bottom, l.top, size, 1000),
-    }));
-  }, [size]);
-
-  // Compute SVG Snakes
-  const snakeGeometries = useMemo(() => {
-    return PRD_SNAKES_LIST.map((s) => ({
-      ...s,
-      geom: computeSnakeGeometry(s.head, s.tail, size, 1000),
-    }));
-  }, [size]);
+  const currentTheme = SHARK_THEMES[sharkThemeId] || SHARK_THEMES['great-white'];
+  const currentLayout = getSharkLayoutPreset(sharkLayoutId);
 
   // Group players by current rendered tile (1..100)
   const playersOnBoard = useMemo(() => {
     const map = new Map<number, Player[]>();
     players.forEach((p) => {
-      const effectivePos = (p.id === steppingPlayerId && steppingTile !== null) ? steppingTile : p.position;
+      const effectivePos = p.id === steppingPlayerId && steppingTile !== null ? steppingTile : p.position;
       if (effectivePos >= 1 && effectivePos <= 100) {
         if (!map.has(effectivePos)) map.set(effectivePos, []);
         map.get(effectivePos)!.push(p);
@@ -51,7 +50,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   // Players at start bench (Position 0)
   const playersAtStart = useMemo(() => {
     return players.filter((p) => {
-      const effectivePos = (p.id === steppingPlayerId && steppingTile !== null) ? steppingTile : p.position;
+      const effectivePos = p.id === steppingPlayerId && steppingTile !== null ? steppingTile : p.position;
       return effectivePos === 0;
     });
   }, [players, steppingPlayerId, steppingTile]);
@@ -62,8 +61,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
         // Row 0 is top row (contains 100 down to 91)
-        const rowFromBottom = (size - 1) - r;
-        const colInRow = (rowFromBottom % 2 === 0) ? c : (size - 1 - c);
+        const rowFromBottom = size - 1 - r;
+        const colInRow = rowFromBottom % 2 === 0 ? c : size - 1 - c;
         const tileNum = rowFromBottom * size + colInRow + 1;
         cells.push({
           tileNum,
@@ -77,8 +76,53 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
   return (
     <div className="flex flex-col items-center w-full max-w-[560px] mx-auto select-none">
+      {/* 🦈 Quick Shark Board Theme & Layout Selector Bar */}
+      <div className="w-full mb-2 bg-slate-900/90 border border-slate-800 rounded-xl px-2.5 sm:px-3 py-1.5 flex items-center justify-between gap-2 shadow-md">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 max-w-[75%] sm:max-w-[80%]">
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0 flex items-center gap-1">
+            <Palette className="w-3 h-3 text-cyan-400" /> Themes:
+          </span>
+
+          {SHARK_THEMES_LIST.map((theme) => {
+            const isActive = theme.id === sharkThemeId;
+            return (
+              <button
+                key={theme.id}
+                onClick={() => {
+                  sound.playClick();
+                  if (onChangeTheme) onChangeTheme(theme.id);
+                }}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold shrink-0 transition-all cursor-pointer border ${
+                  isActive
+                    ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200 ring-1 ring-cyan-400/50 shadow-sm scale-105'
+                    : 'bg-slate-800/80 border-slate-700/80 text-slate-400 hover:text-white hover:bg-slate-750'
+                }`}
+                title={`${theme.name} — ${theme.speciesTitle}`}
+              >
+                <span>{theme.icon}</span>
+                <span className="hidden xs:inline">{theme.name.split(' ')[0]}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {onOpenThemeModal && (
+          <button
+            onClick={() => {
+              sound.playClick();
+              onOpenThemeModal();
+            }}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-cyan-400 text-cyan-300 text-[10px] font-black uppercase tracking-wider shrink-0 cursor-pointer transition-colors shadow-sm"
+            title="Open Shark Themes & Board Layouts"
+          >
+            <Compass className="w-3 h-3" />
+            <span className="hidden sm:inline">Layouts</span>
+          </button>
+        )}
+      </div>
+
       {/* Position 0 Bench (Starting Zone outside board) */}
-      <div className="w-full mb-2.5 bg-slate-900/90 border border-slate-800 rounded-xl px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2 shadow-md">
+      <div className="w-full mb-2 bg-slate-900/90 border border-slate-800 rounded-xl px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2 shadow-md">
         <div className="flex items-center gap-1.5 sm:gap-2">
           <Flag className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0" />
           <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-300">
@@ -112,10 +156,15 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       </div>
 
       {/* Main 10x10 Board Arena */}
-      <div className="relative w-full aspect-square rounded-2xl sm:rounded-3xl overflow-hidden border-2 sm:border-4 border-slate-700/80 bg-slate-900 p-1.5 sm:p-2.5 shadow-2xl">
+      <div
+        className={`relative w-full aspect-square rounded-2xl sm:rounded-3xl overflow-hidden border-2 sm:border-4 transition-all duration-300 p-1.5 sm:p-2.5 ${currentTheme.boardOuterBorder} ${currentTheme.boardOuterBg}`}
+      >
+        {/* Subtle Water Caustic Overlay */}
+        <div className="absolute inset-0 pointer-events-none opacity-25 mix-blend-overlay bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/20 via-transparent to-transparent" />
+
         {/* 10x10 Grid */}
         <div
-          className="grid w-full h-full gap-0.5 sm:gap-1 rounded-lg sm:rounded-xl overflow-hidden relative"
+          className={`grid w-full h-full gap-0.5 sm:gap-1 rounded-lg sm:rounded-xl overflow-hidden relative ${currentTheme.boardInnerGridBg}`}
           style={{
             gridTemplateColumns: 'repeat(10, minmax(0, 1fr))',
             gridTemplateRows: 'repeat(10, minmax(0, 1fr))',
@@ -126,23 +175,27 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             const isStart = tileNum === 1;
             const isEven = (Math.floor((tileNum - 1) / 10) + (tileNum % 10)) % 2 === 0;
 
-            const isSnakeHead = PRD_SNAKES_LIST.find((s) => s.head === tileNum);
-            const isLadderBottom = PRD_LADDERS_LIST.find((l) => l.bottom === tileNum);
+            const isSharkHead = currentLayout.snakesList.find((s) => s.head === tileNum);
+            const isLadderBottom = currentLayout.laddersList.find((l) => l.bottom === tileNum);
 
-            let cellBg = isEven ? 'bg-slate-800/85 text-amber-50 border-slate-700/60' : 'bg-slate-850 text-amber-100 border-slate-800/70';
-            if (isFinish) cellBg = 'bg-gradient-to-br from-amber-500 via-amber-400 to-yellow-500 text-slate-950 font-black border-amber-300 shadow-inner';
-            if (isStart) cellBg = 'bg-gradient-to-br from-emerald-700 to-teal-800 text-white font-bold border-emerald-400';
+            let cellBg = isEven ? currentTheme.tileEvenBg : currentTheme.tileOddBg;
+            if (isFinish) cellBg = currentTheme.finishBg;
+            if (isStart) cellBg = currentTheme.startBg;
 
             return (
               <div
                 key={tileNum}
-                className={`relative flex flex-col justify-between p-0.5 sm:p-1 rounded-[3px] sm:rounded-sm border transition-colors ${cellBg}`}
+                className={`relative flex flex-col justify-between p-0.5 sm:p-1 rounded-[3px] sm:rounded-sm border transition-colors ${currentTheme.tileBorder} ${cellBg}`}
               >
                 {/* Tile Number Header */}
                 <div className="flex items-center justify-between w-full leading-none">
                   <span
                     className={`text-[8px] xs:text-[9px] sm:text-xs font-black tracking-tight ${
-                      isFinish ? 'text-slate-950 font-black' : isStart ? 'text-emerald-100 font-bold' : 'text-slate-300'
+                      isFinish
+                        ? 'text-slate-950 font-black'
+                        : isStart
+                        ? 'text-white font-black'
+                        : currentTheme.tileNumberColor
                     }`}
                   >
                     {tileNum}
@@ -152,22 +205,30 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                     <Trophy className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-slate-950 drop-shadow animate-bounce" />
                   )}
                   {isStart && (
-                    <span className="text-[6px] sm:text-[8px] font-black uppercase text-emerald-200">
+                    <span className="text-[6px] sm:text-[8px] font-black uppercase text-white drop-shadow">
                       START
                     </span>
                   )}
                 </div>
 
-                {/* Snake / Ladder Badge Indicators */}
+                {/* Shark / Ladder Badge Indicators */}
                 <div className="flex items-center justify-end gap-0.5 text-[6px] sm:text-[8px] opacity-90 leading-none">
-                  {isSnakeHead && (
-                    <span className="text-rose-400 font-black" title={`Snake slides down to ${isSnakeHead.tail}`}>
-                      🐍➔{isSnakeHead.tail}
+                  {isSharkHead && (
+                    <span
+                      className="font-black drop-shadow-sm flex items-center gap-0.5 text-rose-400"
+                      title={`${currentTheme.hazardName} chomps down to ${isSharkHead.tail}`}
+                    >
+                      <span>{currentTheme.hazardEmoji}</span>
+                      <span>➔{isSharkHead.tail}</span>
                     </span>
                   )}
                   {isLadderBottom && (
-                    <span className="text-emerald-400 font-black" title={`Ladder climbs up to ${isLadderBottom.top}`}>
-                      🪜➔{isLadderBottom.top}
+                    <span
+                      className="font-black drop-shadow-sm flex items-center gap-0.5 text-emerald-400"
+                      title={`${currentTheme.ladderName} ascends up to ${isLadderBottom.top}`}
+                    >
+                      <span>{currentTheme.ladderEmoji}</span>
+                      <span>➔{isLadderBottom.top}</span>
                     </span>
                   )}
                 </div>
@@ -176,114 +237,14 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           })}
         </div>
 
-        {/* SVG Layer for Snakes and Ladders */}
-        <svg
-          viewBox="0 0 1000 1000"
-          className="absolute inset-0 w-full h-full pointer-events-none p-1.5 sm:p-2.5"
-          style={{ overflow: 'visible' }}
-        >
-          <defs>
-            <filter id="shadow3D" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="2" dy="5" stdDeviation="4" floodColor="#000000" floodOpacity="0.6" />
-            </filter>
-
-            {/* Snake Gradients */}
-            <linearGradient id="snakeGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#ef4444" />
-              <stop offset="50%" stopColor="#dc2626" />
-              <stop offset="100%" stopColor="#7f1d1d" />
-            </linearGradient>
-
-            <linearGradient id="snakeGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#f97316" />
-              <stop offset="50%" stopColor="#ea580c" />
-              <stop offset="100%" stopColor="#9a3412" />
-            </linearGradient>
-
-            <linearGradient id="ladderRailGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#fef08a" />
-              <stop offset="50%" stopColor="#eab308" />
-              <stop offset="100%" stopColor="#a16207" />
-            </linearGradient>
-          </defs>
-
-          {/* 🪜 Ladders Group */}
-          <g filter="url(#shadow3D)">
-            {ladderGeometries.map((l) => (
-              <g key={l.id} className="opacity-95 hover:opacity-100 transition-opacity">
-                {/* Rail 1 (Left side) */}
-                <line
-                  x1={l.geom.rail1Start.x}
-                  y1={l.geom.rail1Start.y}
-                  x2={l.geom.rail1End.x}
-                  y2={l.geom.rail1End.y}
-                  stroke="url(#ladderRailGrad)"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                />
-                {/* Rail 2 (Right side) */}
-                <line
-                  x1={l.geom.rail2Start.x}
-                  y1={l.geom.rail2Start.y}
-                  x2={l.geom.rail2End.x}
-                  y2={l.geom.rail2End.y}
-                  stroke="url(#ladderRailGrad)"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                />
-                {/* Ladder Rungs */}
-                {l.geom.rungs.map((rung, idx) => (
-                  <line
-                    key={idx}
-                    x1={rung.start.x}
-                    y1={rung.start.y}
-                    x2={rung.end.x}
-                    y2={rung.end.y}
-                    stroke="#fef9c3"
-                    strokeWidth="5"
-                    strokeLinecap="round"
-                  />
-                ))}
-              </g>
-            ))}
-          </g>
-
-          {/* 🐍 Snakes Group */}
-          <g filter="url(#shadow3D)">
-            {snakeGeometries.map((s, idx) => {
-              const grad = idx % 2 === 0 ? 'url(#snakeGrad1)' : 'url(#snakeGrad2)';
-              return (
-                <g key={s.id} className="opacity-95 hover:opacity-100 transition-opacity">
-                  {/* Snake Body */}
-                  <path
-                    d={s.geom.pathD}
-                    fill="none"
-                    stroke={grad}
-                    strokeWidth="18"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  {/* Snake Head */}
-                  <circle
-                    cx={s.geom.head.x}
-                    cy={s.geom.head.y}
-                    r="13"
-                    fill={idx % 2 === 0 ? '#b91c1c' : '#c2410c'}
-                    stroke="#fef08a"
-                    strokeWidth="2"
-                  />
-                  {/* Snake Eyes */}
-                  <circle cx={s.geom.head.x - 3} cy={s.geom.head.y - 3} r="2.5" fill="#fef08a" />
-                  <circle cx={s.geom.head.x + 3} cy={s.geom.head.y - 3} r="2.5" fill="#fef08a" />
-                  <circle cx={s.geom.head.x - 3} cy={s.geom.head.y - 3} r="1" fill="#000" />
-                  <circle cx={s.geom.head.x + 3} cy={s.geom.head.y - 3} r="1" fill="#000" />
-                  {/* Snake Tail Accent */}
-                  <circle cx={s.geom.tail.x} cy={s.geom.tail.y} r="4" fill="#fbbf24" />
-                </g>
-              );
-            })}
-          </g>
-        </svg>
+        {/* 🦈 SVG Layer for Shark Hazards & Ascent Ladders */}
+        <SharkSvgLayer
+          theme={currentTheme}
+          snakes={currentLayout.snakesList}
+          ladders={currentLayout.laddersList}
+          boardSize={size}
+          dimension={1000}
+        />
 
         {/* 🔴 Clustered Animated Player Tokens */}
         <div className="absolute inset-0 pointer-events-none p-1.5 sm:p-2.5">
@@ -317,7 +278,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                             ? 'bg-emerald-500 text-white'
                             : 'bg-amber-400 text-slate-950'
                         } ${
-                          isTurn ? 'ring-2 sm:ring-4 ring-amber-400 scale-110 sm:scale-125 z-40 token-active-pulse' : 'z-30'
+                          isTurn
+                            ? 'ring-2 sm:ring-4 ring-amber-400 scale-110 sm:scale-125 z-40 token-active-pulse'
+                            : 'z-30'
                         } ${isStepping ? 'scale-125 sm:scale-140 -translate-y-1 z-50' : ''}`}
                         style={{
                           transform: `translate(${idx * 3}px, ${idx * -3}px)`,
@@ -333,6 +296,19 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             );
           })}
         </div>
+      </div>
+
+      {/* Board Ambient Footer Badge */}
+      <div className="w-full mt-2 flex items-center justify-between text-[10px] text-slate-400 px-1 font-medium">
+        <span className="flex items-center gap-1">
+          <span className="font-bold text-slate-300">{currentTheme.icon} {currentTheme.name}</span>
+          <span>•</span>
+          <span className={currentTheme.ambientTextColor}>{currentTheme.speciesTitle}</span>
+        </span>
+        <span className="flex items-center gap-1 font-mono text-slate-400">
+          <span>{currentLayout.icon} {currentLayout.name}</span>
+          <span>({Object.keys(currentLayout.snakes).length} Sharks / {Object.keys(currentLayout.ladders).length} Ladders)</span>
+        </span>
       </div>
     </div>
   );

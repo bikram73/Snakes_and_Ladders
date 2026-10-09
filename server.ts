@@ -68,6 +68,25 @@ const LADDERS: Record<number, number> = {
   80: 99,
 };
 
+const SHARK_LAYOUT_MAP: Record<string, { snakes: Record<number, number>; ladders: Record<number, number> }> = {
+  'reef-patrol': {
+    snakes: { 98: 78, 95: 75, 92: 88, 89: 68, 74: 53, 64: 44, 62: 22, 49: 11, 47: 26, 16: 6 },
+    ladders: { 3: 22, 8: 30, 15: 44, 21: 42, 28: 76, 36: 57, 51: 67, 71: 92, 80: 99 },
+  },
+  'shark-frenzy': {
+    snakes: { 99: 69, 94: 71, 91: 61, 87: 54, 78: 48, 65: 35, 59: 19, 53: 33, 46: 15, 38: 17, 24: 7, 18: 3 },
+    ladders: { 2: 38, 7: 29, 14: 45, 22: 58, 32: 75, 41: 79, 63: 81, 72: 93 },
+  },
+  'treasure-dive': {
+    snakes: { 97: 77, 93: 63, 86: 56, 76: 46, 68: 38, 52: 23, 37: 16, 19: 5 },
+    ladders: { 4: 25, 9: 31, 12: 41, 20: 59, 27: 66, 35: 64, 43: 74, 55: 83, 61: 82, 73: 94, 84: 98 },
+  },
+  'megalodon-gauntlet': {
+    snakes: { 99: 21, 96: 55, 93: 43, 88: 24, 82: 62, 75: 34, 58: 38, 44: 14, 31: 12, 17: 4 },
+    ladders: { 5: 35, 10: 32, 16: 47, 25: 56, 39: 68, 48: 79, 60: 85, 70: 91, 81: 97 },
+  },
+};
+
 const COLOR_MAP = [
   { color: 'red', avatar: '🔴' },
   { color: 'blue', avatar: '🔵' },
@@ -97,7 +116,11 @@ export interface GameSession {
     board_size: number;
     exact_finish: boolean;
     extra_turn_on_six: boolean;
+    shark_theme?: string;
+    shark_layout?: string;
   };
+  snakes?: Record<number, number>;
+  ladders?: Record<number, number>;
   move_history: Array<{
     player_id: number;
     player_name: string;
@@ -125,7 +148,11 @@ export interface OnlineRoom {
     board_size: number;
     exact_finish: boolean;
     extra_turn_on_six: boolean;
+    shark_theme?: string;
+    shark_layout?: string;
   };
+  snakes?: Record<number, number>;
+  ladders?: Record<number, number>;
   move_history: Array<any>;
   last_updated: number;
 }
@@ -174,8 +201,12 @@ app.post('/api/game/new', (req, res) => {
     players: customPlayers,
     exact_finish = true,
     extra_turn_on_six = true,
+    shark_theme = 'great-white',
+    shark_layout = 'reef-patrol',
   } = req.body || {};
   const game_id = `game_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+  const layoutPreset = SHARK_LAYOUT_MAP[shark_layout] || SHARK_LAYOUT_MAP['reef-patrol'];
 
   const players = createPlayers(mode, customPlayers);
   const session: GameSession = {
@@ -191,7 +222,11 @@ app.post('/api/game/new', (req, res) => {
       board_size: 100,
       exact_finish: Boolean(exact_finish),
       extra_turn_on_six: Boolean(extra_turn_on_six),
+      shark_theme: String(shark_theme),
+      shark_layout: String(shark_layout),
     },
+    snakes: layoutPreset.snakes,
+    ladders: layoutPreset.ladders,
     move_history: [],
   };
 
@@ -240,6 +275,9 @@ app.post('/api/game/roll', (req, res) => {
   const oldPosition = currPlayer.position;
   const landingPosition = oldPosition + dice;
 
+  const activeSnakes = session.snakes || SNAKES;
+  const activeLadders = session.ladders || LADDERS;
+
   let event: 'normal' | 'ladder' | 'snake' | 'overshoot' | 'winner' = 'normal';
   let message = `${currPlayer.name} rolled a ${dice} and moved from ${oldPosition} to ${landingPosition}.`;
   let finalPosition = landingPosition;
@@ -256,14 +294,17 @@ app.post('/api/game/roll', (req, res) => {
     event = 'winner';
     message = `🏆 ${currPlayer.name} wins! Congratulations!`;
   } else if (landingPosition < 100) {
-    if (LADDERS[landingPosition]) {
-      finalPosition = LADDERS[landingPosition];
+    if (activeLadders[landingPosition]) {
+      finalPosition = activeLadders[landingPosition];
       event = 'ladder';
       message = `🪜 Ladder! ${currPlayer.name} climbed from ${landingPosition} to ${finalPosition}.`;
-    } else if (SNAKES[landingPosition]) {
-      finalPosition = SNAKES[landingPosition];
+    } else if (activeSnakes[landingPosition]) {
+      finalPosition = activeSnakes[landingPosition];
       event = 'snake';
-      message = `🐍 Snake! ${currPlayer.name} slid down from ${landingPosition} to ${finalPosition}.`;
+      const isClassic = session.rules.shark_theme === 'classic-snake';
+      message = isClassic
+        ? `🐍 Snake! ${currPlayer.name} slid down from ${landingPosition} to ${finalPosition}.`
+        : `🦈 Shark Attack! ${currPlayer.name} was chomped and dragged down from ${landingPosition} to ${finalPosition}.`;
     }
     currPlayer.position = finalPosition;
   }
@@ -365,10 +406,13 @@ app.post('/api/room/create', (req, res) => {
     max_players = 2,
     exact_finish = true,
     extra_turn_on_six = true,
+    shark_theme = 'great-white',
+    shark_layout = 'reef-patrol',
   } = req.body || {};
 
   const roomCode = generateRoomCode();
   const clampedMax = Math.max(2, Math.min(4, Number(max_players) || 2));
+  const layoutPreset = SHARK_LAYOUT_MAP[shark_layout] || SHARK_LAYOUT_MAP['reef-patrol'];
 
   const hostPlayer: PlayerState = {
     id: 0,
@@ -393,7 +437,11 @@ app.post('/api/room/create', (req, res) => {
       board_size: 100,
       exact_finish: Boolean(exact_finish),
       extra_turn_on_six: Boolean(extra_turn_on_six),
+      shark_theme: String(shark_theme),
+      shark_layout: String(shark_layout),
     },
+    snakes: layoutPreset.snakes,
+    ladders: layoutPreset.ladders,
     move_history: [],
     last_updated: Date.now(),
   };
@@ -637,14 +685,20 @@ app.post('/api/room/roll', (req, res) => {
     event = 'winner';
     message = `🏆 ${currPlayer.name} wins! Congratulations!`;
   } else if (landingPosition < 100) {
-    if (LADDERS[landingPosition]) {
-      finalPosition = LADDERS[landingPosition];
+    const activeLadders = room.ladders || LADDERS;
+    const activeSnakes = room.snakes || SNAKES;
+
+    if (activeLadders[landingPosition]) {
+      finalPosition = activeLadders[landingPosition];
       event = 'ladder';
       message = `🪜 Ladder! ${currPlayer.name} climbed from ${landingPosition} to ${finalPosition}.`;
-    } else if (SNAKES[landingPosition]) {
-      finalPosition = SNAKES[landingPosition];
+    } else if (activeSnakes[landingPosition]) {
+      finalPosition = activeSnakes[landingPosition];
       event = 'snake';
-      message = `🐍 Snake! ${currPlayer.name} slid down from ${landingPosition} to ${finalPosition}.`;
+      const isClassic = room.rules.shark_theme === 'classic-snake';
+      message = isClassic
+        ? `🐍 Snake! ${currPlayer.name} slid down from ${landingPosition} to ${finalPosition}.`
+        : `🦈 Shark Attack! ${currPlayer.name} was chomped and dragged down from ${landingPosition} to ${finalPosition}.`;
     }
     currPlayer.position = finalPosition;
   }

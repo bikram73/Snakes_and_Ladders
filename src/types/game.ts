@@ -1,3 +1,7 @@
+import { SharkThemeId, SharkLayoutPresetId } from '../utils/sharkThemes';
+
+export type { SharkThemeId, SharkLayoutPresetId };
+
 export type GameMode = 'pvc' | 'multiplayer' | 'remote';
 
 export interface Player {
@@ -14,6 +18,8 @@ export interface GameRules {
   extraTurnOnSix: boolean; // Six gives another turn
   soundEnabled: boolean;
   animationSpeed: 'slow' | 'normal' | 'fast'; // Slow: 250ms, Normal: 150ms, Fast: 80ms
+  sharkTheme?: SharkThemeId;
+  sharkLayout?: SharkLayoutPresetId;
 }
 
 export interface MoveLog {

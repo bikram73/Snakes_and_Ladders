@@ -45,7 +45,7 @@ export const MoveLogDrawer: React.FC<MoveLogDrawerProps> = ({ logs, isOpen, onTo
               icon = '🪜';
               badgeBg = 'bg-emerald-950/80 border-emerald-800 text-emerald-300';
             } else if (log.event === 'snake') {
-              icon = '🐍';
+              icon = log.message.includes('Shark') ? '🦈' : '🐍';
               badgeBg = 'bg-rose-950/80 border-rose-800 text-rose-300';
             } else if (log.event === 'overshoot') {
               icon = '⚠️';

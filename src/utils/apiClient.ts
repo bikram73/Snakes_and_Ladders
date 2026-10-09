@@ -72,8 +72,10 @@ export const gameApi = {
   async newGame(
     mode: 'pvc' | 'multiplayer',
     playersList: Array<{ name: string; is_computer: boolean; avatar: string; color: string }>,
-    exactFinish: boolean,
-    extraTurnOnSix: boolean
+    exactFinish: boolean = true,
+    extraTurnOnSix: boolean = true,
+    sharkTheme: string = 'great-white',
+    sharkLayout: string = 'reef-patrol'
   ): Promise<NewGameApiResponse> {
     const serverAttempt = await tryFetchJson('/api/game/new', {
       method: 'POST',
@@ -83,6 +85,8 @@ export const gameApi = {
         players: playersList,
         exact_finish: exactFinish,
         extra_turn_on_six: extraTurnOnSix,
+        shark_theme: sharkTheme,
+        shark_layout: sharkLayout,
       }),
     });
 
@@ -264,7 +268,9 @@ export const gameApi = {
     hostName: string,
     maxPlayers: number,
     exactFinish: boolean,
-    extraTurnOnSix: boolean
+    extraTurnOnSix: boolean,
+    sharkTheme: string = 'great-white',
+    sharkLayout: string = 'reef-patrol'
   ): Promise<{ success: boolean; room_code: string; player_id: number; room?: RoomState; error?: string }> {
     const serverAttempt = await tryFetchJson('/api/room/create', {
       method: 'POST',
@@ -274,6 +280,8 @@ export const gameApi = {
         max_players: maxPlayers,
         exact_finish: exactFinish,
         extra_turn_on_six: extraTurnOnSix,
+        shark_theme: sharkTheme,
+        shark_layout: sharkLayout,
       }),
     });
 

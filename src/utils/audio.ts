@@ -195,6 +195,59 @@ class SoundEngine {
     } catch {}
   }
 
+  // Shark Attack & Chomp: Jaw snap, thrashing water splash, and predatory sub-bass plunge
+  playSharkChomp(theme?: string) {
+    if (!this.enabled) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+
+      // 1. Shark Jaw Snap (percussive bite)
+      const snapOsc = this.ctx.createOscillator();
+      const snapGain = this.ctx.createGain();
+      snapOsc.type = theme === 'cyber-shark' ? 'square' : 'triangle';
+      snapOsc.frequency.setValueAtTime(theme === 'cyber-shark' ? 880 : 380, now);
+      snapOsc.frequency.exponentialRampToValueAtTime(50, now + 0.08);
+
+      snapGain.gain.setValueAtTime(0.45 * this.volume, now);
+      snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      snapOsc.connect(snapGain);
+      snapGain.connect(this.ctx.destination);
+      snapOsc.start(now);
+      snapOsc.stop(now + 0.08);
+
+      // 2. Thrashing Splash Surge
+      const waterOsc = this.ctx.createOscillator();
+      const waterGain = this.ctx.createGain();
+      waterOsc.type = 'sawtooth';
+      waterOsc.frequency.setValueAtTime(260, now + 0.04);
+      waterOsc.frequency.exponentialRampToValueAtTime(80, now + 0.45);
+
+      waterGain.gain.setValueAtTime(0.28 * this.volume, now + 0.04);
+      waterGain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      waterOsc.connect(waterGain);
+      waterGain.connect(this.ctx.destination);
+      waterOsc.start(now + 0.04);
+      waterOsc.stop(now + 0.45);
+
+      // 3. Predatory Abyss Sub-bass plunge
+      const subOsc = this.ctx.createOscillator();
+      const subGain = this.ctx.createGain();
+      subOsc.type = 'sine';
+      subOsc.frequency.setValueAtTime(theme === 'megalodon' ? 130 : 95, now + 0.02);
+      subOsc.frequency.exponentialRampToValueAtTime(32, now + 0.7);
+
+      subGain.gain.setValueAtTime(0.4 * this.volume, now + 0.02);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+      subOsc.connect(subGain);
+      subGain.connect(this.ctx.destination);
+      subOsc.start(now + 0.02);
+      subOsc.stop(now + 0.7);
+    } catch {}
+  }
+
   // Freeze Trap sound
   playFreeze() {
     if (!this.enabled) return;

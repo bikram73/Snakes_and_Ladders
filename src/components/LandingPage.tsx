@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { GameRules } from '../types/game';
+import { GameRules, SharkThemeId, SharkLayoutPresetId } from '../types/game';
 import { sound } from '../utils/audio';
 import { gameApi } from '../utils/apiClient';
 import { AnimatedBoardHero } from './AnimatedBoardHero';
+import { SHARK_THEMES, SHARK_THEMES_LIST } from '../utils/sharkThemes';
+import { SHARK_LAYOUT_PRESETS, SHARK_LAYOUT_PRESETS_LIST } from '../utils/boardPresets';
 import {
   Bot,
   Users,
@@ -17,6 +19,8 @@ import {
   Share2,
   Check,
   Trophy,
+  Palette,
+  Compass,
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -208,7 +212,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         hostPlayerName.trim() || 'Host',
         remoteMaxPlayers,
         rules.exact100,
-        rules.extraTurnOnSix
+        rules.extraTurnOnSix,
+        rules.sharkTheme || 'great-white',
+        rules.sharkLayout || 'reef-patrol'
       );
 
       setIsCreatingRoom(false);
@@ -340,7 +346,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         )}
 
         {/* Animated Live Game Showcase Hero */}
-        <AnimatedBoardHero />
+        <AnimatedBoardHero
+          initialThemeId={rules.sharkTheme || 'great-white'}
+          initialLayoutId={rules.sharkLayout || 'reef-patrol'}
+          onThemeSelect={(themeId) => {
+            const upd = { ...rules, sharkTheme: themeId };
+            setRules(upd);
+            onUpdateRules(upd);
+          }}
+        />
 
         {/* Step 1: Select Game Mode (3 Modes: PvC, Multiplayer, Remote) */}
         <div className="flex flex-col gap-3">
@@ -821,6 +835,100 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               )}
             </div>
           )}
+
+          {/* Step 3: Shark Board Theme & Hazard Layout Selection */}
+          <div className="border-t border-slate-800 pt-4 flex flex-col gap-4">
+            {/* Visual Themes */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <Palette className="w-4 h-4 text-cyan-400" /> Choose Shark Board Theme
+                </span>
+                <span className="text-[11px] text-cyan-300 font-mono font-bold">
+                  {SHARK_THEMES[rules.sharkTheme || 'great-white']?.name}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Custom predator graphics, ocean textures, and board colors.
+              </p>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {SHARK_THEMES_LIST.map((th) => {
+                  const isSelected = (rules.sharkTheme || 'great-white') === th.id;
+                  return (
+                    <button
+                      key={th.id}
+                      onClick={() => {
+                        sound.playClick();
+                        const updated = { ...rules, sharkTheme: th.id };
+                        setRules(updated);
+                        onUpdateRules(updated);
+                      }}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                        isSelected
+                          ? 'bg-slate-850 border-cyan-400 ring-2 ring-cyan-400/50 shadow-md scale-[1.01]'
+                          : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xl">{th.icon}</span>
+                          <span className="text-xs font-black text-white truncate">{th.name.split(' ')[0]}</span>
+                        </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-cyan-400 stroke-[3]" />}
+                      </div>
+                      <span className="text-[10px] text-cyan-300 font-mono truncate opacity-90">
+                        {th.speciesTitle.split('(')[0]}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Layout Presets */}
+            <div className="flex flex-col gap-2 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <Compass className="w-4 h-4 text-amber-400" /> Shark Board Hazard Layout Preset
+                </span>
+                <span className="text-[11px] text-amber-300 font-mono font-bold">
+                  {SHARK_LAYOUT_PRESETS[rules.sharkLayout || 'reef-patrol']?.name}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {SHARK_LAYOUT_PRESETS_LIST.map((layout) => {
+                  const isSelected = (rules.sharkLayout || 'reef-patrol') === layout.id;
+                  return (
+                    <button
+                      key={layout.id}
+                      onClick={() => {
+                        sound.playClick();
+                        const updated = { ...rules, sharkLayout: layout.id };
+                        setRules(updated);
+                        onUpdateRules(updated);
+                      }}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-0.5 ${
+                        isSelected
+                          ? 'bg-slate-850 border-amber-400 ring-2 ring-amber-400/50 shadow-md scale-[1.01]'
+                          : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-base">{layout.icon}</span>
+                        {isSelected && <Check className="w-3 h-3 text-amber-400 stroke-[3]" />}
+                      </div>
+                      <span className="text-xs font-black text-white truncate">{layout.name}</span>
+                      <span className="text-[9px] text-amber-300 font-mono">
+                        {layout.difficulty} • {Object.keys(layout.snakes).length} 🦈
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
 
           {/* Quick Match Rules Bar */}
           <div className="border-t border-slate-800 pt-3.5 flex flex-wrap items-center justify-between gap-2.5">

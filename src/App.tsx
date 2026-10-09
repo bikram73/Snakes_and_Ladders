@@ -15,6 +15,8 @@ import { SettingsModal } from './components/SettingsModal';
 import { NewGameConfirmModal } from './components/NewGameConfirmModal';
 import { VictoryModal } from './components/VictoryModal';
 import { MoveLogDrawer } from './components/MoveLogDrawer';
+import { SharkThemeModal } from './components/SharkThemeModal';
+import { SHARK_THEMES, SharkThemeId, SharkLayoutPresetId } from './utils/sharkThemes';
 import { sound } from './utils/audio';
 import {
   Volume2,
@@ -32,6 +34,7 @@ import {
   Copy,
   Check,
   Share2,
+  Palette,
 } from 'lucide-react';
 
 const DEFAULT_RULES: GameRules = {
@@ -39,6 +42,8 @@ const DEFAULT_RULES: GameRules = {
   extraTurnOnSix: true,
   soundEnabled: true,
   animationSpeed: 'normal',
+  sharkTheme: 'great-white',
+  sharkLayout: 'reef-patrol',
 };
 
 export default function App() {
@@ -77,6 +82,7 @@ export default function App() {
   // Modals & Panels
   const [showRulesModal, setShowRulesModal] = useState<boolean>(false);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
+  const [showSharkThemeModal, setShowSharkThemeModal] = useState<boolean>(false);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState<boolean>(false);
   const [showLogDrawer, setShowLogDrawer] = useState<boolean>(false);
   const [moveLogs, setMoveLogs] = useState<MoveLog[]>([]);
@@ -86,6 +92,7 @@ export default function App() {
 
   const activePlayer = players.find((p) => p.id === currentPlayerId) || players[0];
   const isMyTurnInRemote = isRemoteMatch ? myPlayerId === currentPlayerId : true;
+  const currentSharkTheme = SHARK_THEMES[rules.sharkTheme || 'great-white'] || SHARK_THEMES['great-white'];
 
   // Helper delay
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -119,7 +126,9 @@ export default function App() {
         mode,
         configuredPlayers,
         customRules.exact100,
-        customRules.extraTurnOnSix
+        customRules.extraTurnOnSix,
+        customRules.sharkTheme || 'great-white',
+        customRules.sharkLayout || 'reef-patrol'
       );
 
       setGameId(data.game_id);
@@ -275,24 +284,32 @@ export default function App() {
     if (event === 'ladder') {
       await delay(300);
       sound.playLadderClimb();
+      const ladderEmoji = currentSharkTheme.ladderEmoji;
+      const ladderName = currentSharkTheme.ladderName;
       setActiveEventBanner({
-        text: `🪜 Ladder! Climbed from ${landingPos} to ${finalPos}!`,
+        text: `${ladderEmoji} ${ladderName}! Climbed from ${landingPos} to ${finalPos}!`,
         type: 'ladder',
       });
-      setStatusMessage(`🪜 Ladder! ${actingPlayerName} climbed from ${landingPos} to ${finalPos}.`);
+      setStatusMessage(`${ladderEmoji} ${ladderName}! ${actingPlayerName} climbed from ${landingPos} to ${finalPos}.`);
       setSteppingTile(finalPos);
       await delay(800);
     }
 
-    // 3. Snake Slide Animation
+    // 3. Snake / Shark Slide Animation
     if (event === 'snake') {
       await delay(300);
-      sound.playSnakeSlide();
+      if (rules.sharkTheme === 'classic-snake') {
+        sound.playSnakeSlide();
+      } else {
+        sound.playSharkChomp(rules.sharkTheme);
+      }
+      const hazardEmoji = currentSharkTheme.hazardEmoji;
+      const hazardName = currentSharkTheme.hazardName;
       setActiveEventBanner({
-        text: `🐍 Snake! Slid down from ${landingPos} to ${finalPos}!`,
+        text: `${hazardEmoji} ${hazardName} Attack! Slid down from ${landingPos} to ${finalPos}!`,
         type: 'snake',
       });
-      setStatusMessage(`🐍 Snake! ${actingPlayerName} slid down from ${landingPos} to ${finalPos}.`);
+      setStatusMessage(`${hazardEmoji} ${hazardName}! ${actingPlayerName} was chomped and dragged from ${landingPos} to ${finalPos}.`);
       setSteppingTile(finalPos);
       await delay(800);
     }
@@ -673,6 +690,21 @@ export default function App() {
             <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
           </button>
 
+          {/* Shark Themes Modal */}
+          <button
+            onClick={() => {
+              sound.playClick();
+              setShowSharkThemeModal(true);
+            }}
+            className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+            title="Shark Board Themes & Layouts"
+          >
+            <Palette className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
+            <span className="hidden md:inline text-[11px] font-black text-cyan-300">
+              {currentSharkTheme.icon} {currentSharkTheme.name.split(' ')[0]}
+            </span>
+          </button>
+
           {/* Settings Modal */}
           <button
             onClick={() => {
@@ -751,6 +783,15 @@ export default function App() {
             currentPlayerId={currentPlayerId}
             steppingPlayerId={steppingPlayerId}
             steppingTile={steppingTile}
+            sharkThemeId={rules.sharkTheme || 'great-white'}
+            sharkLayoutId={rules.sharkLayout || 'reef-patrol'}
+            onChangeTheme={(themeId) => {
+              setRules((prev) => ({ ...prev, sharkTheme: themeId }));
+            }}
+            onChangeLayout={(layoutId) => {
+              setRules((prev) => ({ ...prev, sharkLayout: layoutId }));
+            }}
+            onOpenThemeModal={() => setShowSharkThemeModal(true)}
           />
         </div>
 
@@ -877,6 +918,21 @@ export default function App() {
           rules={rules}
           onUpdateRules={setRules}
           onClose={() => setShowSettingsModal(false)}
+        />
+      )}
+
+      {/* Shark Themes & Layouts Modal */}
+      {showSharkThemeModal && (
+        <SharkThemeModal
+          currentThemeId={rules.sharkTheme || 'great-white'}
+          currentLayoutId={rules.sharkLayout || 'reef-patrol'}
+          onSelectTheme={(themeId) => {
+            setRules((prev) => ({ ...prev, sharkTheme: themeId }));
+          }}
+          onSelectLayout={(layoutId) => {
+            setRules((prev) => ({ ...prev, sharkLayout: layoutId }));
+          }}
+          onClose={() => setShowSharkThemeModal(false)}
         />
       )}
 
