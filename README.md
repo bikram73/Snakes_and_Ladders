@@ -488,24 +488,6 @@ Contributions, issues, and feature requests are welcome!
 This project is open source and available under the terms of the **[MIT License](./LICENSE)**.
 
 ```
-MIT License
-
-Copyright (c) 2026 Bikram (https://github.com/bikram73)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-```
-
-See the full **[LICENSE](./LICENSE)** file for complete details. You are free to use, modify, distribute, and build upon this code for personal or commercial projects.
-
----
 
 <div align="center">
 
