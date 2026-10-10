@@ -758,4 +758,110 @@ export const gameApi = {
 
     return { success: true, room };
   },
+
+  // 10. Leave / Exit Room (with 2/3/4 player auto-win / continue logic)
+  async leaveRoom(roomCode: string, playerId: number): Promise<{ success: boolean; room?: RoomState; error?: string }> {
+    const code = roomCode.trim().toUpperCase();
+    const serverAttempt = await tryFetchJson('/api/room/leave', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ room_code: code, player_id: playerId }),
+    });
+
+    if (serverAttempt.hasServer && serverAttempt.data) {
+      if (serverAttempt.data.room) {
+        localRooms.set(code, serverAttempt.data.room);
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
+          } catch (e) {}
+        }
+      }
+      return serverAttempt.data;
+    }
+
+    // Static Netlify Fallback
+    let room = localRooms.get(code);
+    if (!room && typeof localStorage !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(`snakes_room_${code}`);
+        if (stored) room = JSON.parse(stored);
+      } catch (e) {}
+    }
+
+    if (!room) return { success: false, error: 'Room not found' };
+
+    const pid = Number(playerId);
+    const leavingIndex = room.players.findIndex((p) => p.id === pid);
+    if (leavingIndex === -1) {
+      return { success: true, room };
+    }
+
+    const leavingPlayer = room.players[leavingIndex];
+    room.players.splice(leavingIndex, 1);
+    const remainingCount = room.players.length;
+
+    if (room.host_id === pid && remainingCount > 0) {
+      room.host_id = room.players[0].id;
+    }
+
+    if (room.status === 'playing') {
+      if (remainingCount <= 1) {
+        room.game_over = true;
+        room.status = 'ended';
+        const soleSurvivor = room.players[0] || null;
+        room.winner = soleSurvivor;
+        const msg = soleSurvivor
+          ? `${leavingPlayer.name} left the game, so ${soleSurvivor.name} won the game!`
+          : `${leavingPlayer.name} left the game. Game over.`;
+        room.win_reason = msg;
+        room.last_exit_event = {
+          exited_player_id: pid,
+          exited_player_name: leavingPlayer.name,
+          remaining_players_count: remainingCount,
+          message: msg,
+          timestamp: Date.now(),
+        };
+      } else {
+        if (room.current_player >= room.players.length) {
+          room.current_player = 0;
+        }
+        const msg = `${leavingPlayer.name} has exited the game. Removed from board. Match continues with ${remainingCount} players!`;
+        room.last_exit_event = {
+          exited_player_id: pid,
+          exited_player_name: leavingPlayer.name,
+          remaining_players_count: remainingCount,
+          message: msg,
+          timestamp: Date.now(),
+        };
+      }
+    } else {
+      if (remainingCount === 0) {
+        localRooms.delete(code);
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.removeItem(`snakes_room_${code}`);
+          } catch (e) {}
+        }
+        return { success: true };
+      }
+      room.last_exit_event = {
+        exited_player_id: pid,
+        exited_player_name: leavingPlayer.name,
+        remaining_players_count: remainingCount,
+        message: `${leavingPlayer.name} left the lobby.`,
+        timestamp: Date.now(),
+      };
+    }
+
+    room.last_updated = Date.now();
+    localRooms.set(code, room);
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(`snakes_room_${code}`, JSON.stringify(room));
+      } catch (e) {}
+    }
+
+    return { success: true, room };
+  },
 };

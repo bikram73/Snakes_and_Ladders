@@ -311,6 +311,10 @@ This project includes a native `netlify.toml` file ready for instant deployment:
 - **Host Room**: Create a private room with a selected player capacity (2, 3, or 4 players).
 - **Shareable 5-Letter Code & Invite Link**: Host receives an alphanumeric code (e.g. `7KF9A`) and can copy the direct URL (`?room=7KF9A`) with a single click.
 - **Synchronous Lobby**: Guests enter the code or click the invite link to join. When the room reaches capacity, the host launches the match for all connected contenders.
+- **🛡️ Dynamic Player Exit Handling**:
+  - **2-Player Mode**: If either player exits the game, an immediate surrender win is awarded to the remaining player with the message: *"Player left the game so you won the game!"* and a victory celebration podium appears.
+  - **3-Player Mode**: If 1 player exits, their pawn is immediately removed from the board, a broadcast alert announces *"Player has exited the game. Removed from board. Match continues with 2 players!"*, and the match seamlessly continues between the 2 remaining players. If a second player subsequently exits, the game ends and the last remaining player wins.
+  - **4-Player Mode**: If 1 player exits, their pawn is removed and the match continues with 3 players. If another player exits, their pawn is removed and the match continues with 2 players. If yet another exits leaving only 1 player, the match ends and the last player wins!
 
 ---
 
@@ -487,7 +491,9 @@ Contributions, issues, and feature requests are welcome!
 
 This project is open source and available under the terms of the **[MIT License](./LICENSE)**.
 
-```
+See the full **[LICENSE](./LICENSE)** file for complete details. You are free to use, modify, distribute, and build upon this code for personal or commercial projects.
+
+---
 
 <div align="center">
 

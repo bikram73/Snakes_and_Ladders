@@ -6,12 +6,14 @@ import { sound } from '../utils/audio';
 
 interface VictoryModalProps {
   winner: Player;
+  winReason?: string | null;
   onPlayAgain: () => void;
   onMainMenu: () => void;
 }
 
 export const VictoryModal: React.FC<VictoryModalProps> = ({
   winner,
+  winReason,
   onPlayAgain,
   onMainMenu,
 }) => {
@@ -49,7 +51,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             {winner.avatar} {winner.name} WINS!
           </span>
           <p className="text-base font-bold text-amber-950 mt-1">
-            Congratulations! 🎉
+            {winReason ? winReason : 'Congratulations! 🎉'}
           </p>
         </div>
 

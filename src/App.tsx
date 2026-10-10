@@ -13,6 +13,7 @@ import { RemoteRoomLobby } from './components/RemoteRoomLobby';
 import { RulesModal } from './components/RulesModal';
 import { SettingsModal } from './components/SettingsModal';
 import { NewGameConfirmModal } from './components/NewGameConfirmModal';
+import { ExitMatchModal } from './components/ExitMatchModal';
 import { VictoryModal } from './components/VictoryModal';
 import { MoveLogDrawer } from './components/MoveLogDrawer';
 import { SharkThemeModal } from './components/SharkThemeModal';
@@ -35,6 +36,8 @@ import {
   Check,
   Share2,
   Palette,
+  LogOut,
+  UserMinus,
 } from 'lucide-react';
 
 const DEFAULT_RULES: GameRules = {
@@ -60,6 +63,7 @@ export default function App() {
   const [currentPlayerId, setCurrentPlayerId] = useState<number>(0);
   const [gameOver, setGameOver] = useState<boolean>(false);
   const [winner, setWinner] = useState<Player | null>(null);
+  const [winReason, setWinReason] = useState<string | null>(null);
   const [lastDice, setLastDice] = useState<number>(1);
   const [rules, setRules] = useState<GameRules>(DEFAULT_RULES);
 
@@ -69,6 +73,8 @@ export default function App() {
   const [myPlayerId, setMyPlayerId] = useState<number | null>(null);
   const [isRoomHost, setIsRoomHost] = useState<boolean>(false);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
+  const [showExitConfirmModal, setShowExitConfirmModal] = useState<boolean>(false);
+  const lastProcessedExitTimestampRef = useRef<number>(0);
 
   // Animation & UI state
   const [isRolling, setIsRolling] = useState<boolean>(false);
@@ -173,6 +179,7 @@ export default function App() {
         setCurrentPlayerId(room.current_player);
         setGameOver(room.game_over);
         setWinner(room.winner);
+        setWinReason(room.win_reason || null);
         setRules((prev) => ({
           ...prev,
           exact100: room.rules.exact_finish,
@@ -181,6 +188,9 @@ export default function App() {
         setActiveModeTitle(`🌐 Online Room: ${room.code} (${room.players.length} Players)`);
         setMoveLogs([]);
         lastRemoteMoveCountRef.current = room.move_history.length;
+        if (room.last_exit_event?.timestamp) {
+          lastProcessedExitTimestampRef.current = room.last_exit_event.timestamp;
+        }
         setCurrentView('game');
 
         const currP = room.players[room.current_player];
@@ -193,6 +203,39 @@ export default function App() {
     } catch (err) {
       console.error('Error starting remote match:', err);
     }
+  }, [roomCode, myPlayerId]);
+
+  // Handle explicit player exit from an active online game
+  const handleConfirmExitRemoteMatch = useCallback(async () => {
+    setShowExitConfirmModal(false);
+    if (!roomCode || myPlayerId === null) {
+      setIsRemoteMatch(false);
+      setRoomCode(null);
+      setMyPlayerId(null);
+      setCurrentView('landing');
+      return;
+    }
+
+    try {
+      await gameApi.leaveRoom(roomCode, myPlayerId);
+    } catch (e) {
+      console.error('Error leaving room:', e);
+    }
+
+    if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('room');
+        url.searchParams.delete('join');
+        url.searchParams.delete('code');
+        window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+      } catch (e) {}
+    }
+
+    setIsRemoteMatch(false);
+    setRoomCode(null);
+    setMyPlayerId(null);
+    setCurrentView('landing');
   }, [roomCode, myPlayerId]);
 
   // Restart active game match
@@ -479,6 +522,43 @@ export default function App() {
 
         const room: RoomState = data.room;
 
+        // 1. Check for player exit events (2-player surrender win, 3/4-player remove pawn and continue)
+        if (room.last_exit_event && room.last_exit_event.timestamp > lastProcessedExitTimestampRef.current) {
+          lastProcessedExitTimestampRef.current = room.last_exit_event.timestamp;
+          const exitEvt = room.last_exit_event;
+
+          // Sound effect
+          sound.playSnakeSlide();
+
+          // If the exit resulted in an end of game (e.g. 2-player mode where other player left)
+          if (room.game_over && room.winner) {
+            setPlayers(room.players);
+            setGameOver(true);
+            setWinner(room.winner);
+            const winMsg = room.win_reason || exitEvt.message;
+            setWinReason(winMsg);
+            setStatusMessage(`🏆 ${winMsg}`);
+            setActiveEventBanner({
+              text: `👑 ${winMsg}`,
+              type: 'winner',
+            });
+            return;
+          } else {
+            // 3-player or 4-player game where 1 player exited and match continues
+            setPlayers(room.players);
+            setCurrentPlayerId(room.current_player);
+            setActiveModeTitle(`🌐 Online Room: ${room.code} (${room.players.length} Players)`);
+            setStatusMessage(exitEvt.message);
+            setActiveEventBanner({
+              text: `👋 ${exitEvt.message}`,
+              type: 'snake',
+            });
+            setTimeout(() => {
+              setActiveEventBanner(null);
+            }, 5000);
+          }
+        }
+
         // Check if a remote opponent rolled and there are new moves to animate
         const historyLen = room.move_history?.length || 0;
         if (historyLen > lastRemoteMoveCountRef.current) {
@@ -518,6 +598,9 @@ export default function App() {
           setCurrentPlayerId(room.current_player);
           setGameOver(room.game_over);
           setWinner(room.winner);
+          if (room.win_reason) {
+            setWinReason(room.win_reason);
+          }
 
           const currP = room.players[room.current_player];
           if (myPlayerId === room.current_player && !room.game_over) {
@@ -648,14 +731,28 @@ export default function App() {
 
         {/* Action Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Online Match Exit Button */}
+          {isRemoteMatch && (
+            <button
+              onClick={() => {
+                sound.playClick();
+                setShowExitConfirmModal(true);
+              }}
+              className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-rose-950/80 border border-rose-700/80 hover:bg-rose-900 text-rose-200 hover:text-white text-xs font-black transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+              title="Exit Online Match"
+            >
+              <LogOut className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              <span className="hidden sm:inline">Exit Match</span>
+            </button>
+          )}
+
           {/* Return to Main Menu / Landing Page */}
           <button
             onClick={() => {
               sound.playClick();
               if (isRemoteMatch) {
-                setIsRemoteMatch(false);
-                setRoomCode(null);
-                setMyPlayerId(null);
+                setShowExitConfirmModal(true);
+                return;
               }
               setCurrentView('landing');
             }}
@@ -947,10 +1044,20 @@ export default function App() {
         />
       )}
 
+      {/* Exit Online Match Confirm Modal */}
+      {showExitConfirmModal && (
+        <ExitMatchModal
+          totalPlayers={players.length}
+          onConfirm={handleConfirmExitRemoteMatch}
+          onCancel={() => setShowExitConfirmModal(false)}
+        />
+      )}
+
       {/* Victory Celebration Modal */}
       {gameOver && winner && (
         <VictoryModal
           winner={winner}
+          winReason={winReason}
           onPlayAgain={() => {
             handleRestartMatch();
           }}

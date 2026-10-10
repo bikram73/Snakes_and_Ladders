@@ -212,7 +212,7 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
     }
   };
 
-  const handleLeave = () => {
+  const handleLeave = async () => {
     sound.playClick();
     if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
       try {
@@ -223,6 +223,9 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
         window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
       } catch (e) {}
     }
+    try {
+      await gameApi.leaveRoom(currentCode, playerId);
+    } catch (e) {}
     onLeaveRoom();
   };
 

@@ -143,6 +143,14 @@ export interface OnlineRoom {
   current_player: number;
   game_over: boolean;
   winner: PlayerState | null;
+  win_reason?: string | null;
+  last_exit_event?: {
+    exited_player_id: number;
+    exited_player_name: string;
+    remaining_players_count: number;
+    message: string;
+    timestamp: number;
+  } | null;
   last_dice: number | null;
   rules: {
     board_size: number;
@@ -596,6 +604,96 @@ app.get('/api/room/state', (req, res) => {
     room,
     current_player_name: curr.name,
     is_my_turn: isMyTurn,
+  });
+});
+
+// Player leaves/exits online room
+app.post('/api/room/leave', (req, res) => {
+  const { room_code, player_id } = req.body || {};
+  const code = (room_code || '').trim().toUpperCase();
+  const room = activeRooms.get(code);
+
+  if (!room) {
+    return res.status(404).json({ success: false, error: 'Room not found.' });
+  }
+
+  const pid = Number(player_id);
+  const leavingPlayerIndex = room.players.findIndex((p) => p.id === pid);
+
+  if (leavingPlayerIndex === -1) {
+    return res.json({ success: true, message: 'Player already removed', room });
+  }
+
+  const leavingPlayer = room.players[leavingPlayerIndex];
+
+  // 1. Remove this player and all their traces/pawns from the room
+  room.players.splice(leavingPlayerIndex, 1);
+  const remainingCount = room.players.length;
+
+  // Re-assign host if the host left
+  if (room.host_id === pid && remainingCount > 0) {
+    room.host_id = room.players[0].id;
+  }
+
+  if (room.status === 'playing') {
+    // If only 1 player remains (e.g. from 2 players, or 2nd exit in 3/4 player game):
+    // The last player wins!
+    if (remainingCount <= 1) {
+      room.game_over = true;
+      room.status = 'ended';
+      const soleSurvivor = room.players[0] || null;
+      room.winner = soleSurvivor;
+      const winReasonMsg = soleSurvivor
+        ? `${leavingPlayer.name} left the game, so ${soleSurvivor.name} won the game!`
+        : `${leavingPlayer.name} left the game. Game over.`;
+      room.win_reason = winReasonMsg;
+
+      room.last_exit_event = {
+        exited_player_id: pid,
+        exited_player_name: leavingPlayer.name,
+        remaining_players_count: remainingCount,
+        message: winReasonMsg,
+        timestamp: Date.now(),
+      };
+    } else {
+      // 2 or more players remain (e.g. 1 exits in a 3-player or 4-player game):
+      // Adjust current_player turn pointer so turn cycle remains contiguous
+      if (room.current_player >= room.players.length) {
+        room.current_player = 0;
+      }
+
+      const continueMsg = `${leavingPlayer.name} has exited the game. Removed from board. Match continues with ${remainingCount} players!`;
+
+      room.last_exit_event = {
+        exited_player_id: pid,
+        exited_player_name: leavingPlayer.name,
+        remaining_players_count: remainingCount,
+        message: continueMsg,
+        timestamp: Date.now(),
+      };
+    }
+  } else {
+    // In lobby
+    if (remainingCount === 0) {
+      activeRooms.delete(code);
+      saveRoomsToDisk(activeRooms);
+      return res.json({ success: true, message: 'Room empty and closed' });
+    }
+    room.last_exit_event = {
+      exited_player_id: pid,
+      exited_player_name: leavingPlayer.name,
+      remaining_players_count: remainingCount,
+      message: `${leavingPlayer.name} left the lobby.`,
+      timestamp: Date.now(),
+    };
+  }
+
+  room.last_updated = Date.now();
+  saveRoomsToDisk(activeRooms);
+
+  res.json({
+    success: true,
+    room,
   });
 });
 

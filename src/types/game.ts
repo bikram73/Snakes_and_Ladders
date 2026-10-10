@@ -78,6 +78,14 @@ export interface NewGameApiResponse {
   };
 }
 
+export interface RoomExitEvent {
+  exited_player_id: number;
+  exited_player_name: string;
+  remaining_players_count: number;
+  message: string;
+  timestamp: number;
+}
+
 export interface RoomState {
   code: string;
   host_id: number;
@@ -87,6 +95,8 @@ export interface RoomState {
   current_player: number;
   game_over: boolean;
   winner: Player | null;
+  win_reason?: string | null;
+  last_exit_event?: RoomExitEvent | null;
   last_dice: number | null;
   rules: {
     board_size: number;
