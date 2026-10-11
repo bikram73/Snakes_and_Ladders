@@ -283,65 +283,74 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
 
         {/* Room Code & Action Controls Box */}
         <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 sm:p-4.5 flex flex-col gap-3.5 shadow-inner">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/70">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                5-Letter Room Code
+          {/* Top Section: Room Code + Actions Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4 pb-3.5 border-b border-slate-800/80">
+            {/* Left: Room Code Stack */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5 h-4">
+                <span>🔑</span> Room Access Code
               </span>
-              <div className="flex items-center gap-2.5 mt-1">
-                <span className="text-2xl sm:text-3xl font-black tracking-widest text-amber-400 font-mono select-all">
-                  {currentCode}
-                </span>
+              <div className="flex items-center gap-2">
+                <div className="h-11 px-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shadow-inner">
+                  <span className="text-2xl sm:text-3xl font-black tracking-widest text-amber-400 font-mono select-all">
+                    {currentCode}
+                  </span>
+                </div>
                 <button
                   onClick={handleCopyCode}
-                  className={`h-8 px-2.5 rounded-lg text-[11px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
+                  className={`h-11 px-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm ${
                     copiedCode
                       ? 'bg-emerald-500 text-slate-950 shadow'
                       : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-400'
                   }`}
                   title="Copy 5-letter code"
                 >
-                  {copiedCode ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                  <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
+                  {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedCode ? 'Copied' : 'Copy'}</span>
                 </button>
               </div>
             </div>
 
-            {/* Action Buttons: New Code, Copy Link, Share */}
-            <div className="flex items-center gap-2 self-stretch sm:self-auto">
-              {isHost && (
-                <button
-                  onClick={handleGenerateNewCode}
-                  disabled={isRegenerating}
-                  className="h-10 px-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-400 active:scale-98 shadow disabled:opacity-50 shrink-0"
-                  title="Generate a fresh new Room Code"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
-                  <span>{isRegenerating ? '...' : 'New Code'}</span>
-                </button>
-              )}
+            {/* Right: Actions Stack */}
+            <div className="flex flex-col gap-1.5 sm:items-end">
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5 h-4">
+                <span>🚀</span> Invite Contenders
+              </span>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                {isHost && (
+                  <button
+                    onClick={handleGenerateNewCode}
+                    disabled={isRegenerating}
+                    className="h-11 px-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-400 active:scale-98 shadow disabled:opacity-50 shrink-0"
+                    title="Generate a fresh new Room Code"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
+                    <span>{isRegenerating ? '...' : 'New Code'}</span>
+                  </button>
+                )}
 
-              <button
-                onClick={handleCopyLink}
-                className={`h-10 flex-1 sm:flex-initial px-4 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md ${
-                  copiedLink
-                    ? 'bg-emerald-500 text-slate-950 font-black'
-                    : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black active:scale-98'
-                }`}
-              >
-                {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                <span>{copiedLink ? 'Link Copied!' : 'Copy Invite Link'}</span>
-              </button>
-
-              {typeof navigator !== 'undefined' && 'share' in navigator && (
                 <button
-                  onClick={handleNativeShare}
-                  className="h-10 w-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 hover:border-amber-400 cursor-pointer flex items-center justify-center transition-colors shrink-0"
-                  title="Share via WhatsApp or Apps"
+                  onClick={handleCopyLink}
+                  className={`h-11 flex-1 sm:flex-initial px-4 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md ${
+                    copiedLink
+                      ? 'bg-emerald-500 text-slate-950 font-black'
+                      : 'bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black active:scale-98'
+                  }`}
                 >
-                  <Share2 className="w-4 h-4" />
+                  {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  <span>{copiedLink ? 'Link Copied!' : 'Copy Invite Link'}</span>
                 </button>
-              )}
+
+                {typeof navigator !== 'undefined' && 'share' in navigator && (
+                  <button
+                    onClick={handleNativeShare}
+                    className="h-11 w-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 hover:border-amber-400 cursor-pointer flex items-center justify-center transition-colors shrink-0 shadow-sm"
+                    title="Share via WhatsApp or Apps"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
