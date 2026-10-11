@@ -282,106 +282,108 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
         </div>
 
         {/* Room Code & Action Controls Box */}
-        <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 sm:p-4.5 flex flex-col gap-3.5 shadow-inner">
-          {/* Top Section: Room Code + Actions Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4 pb-3.5 border-b border-slate-800/80">
-            {/* Left: Room Code Stack */}
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5 h-4">
+        <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col gap-4 shadow-inner">
+          {/* Row 1: 5-Letter Room Code Display & Code Actions */}
+          <div className="flex flex-col gap-1.5 pb-3 border-b border-slate-800/80">
+            <div className="flex items-center justify-between text-[10px] font-black uppercase text-slate-400 tracking-wider">
+              <span className="flex items-center gap-1.5">
                 <span>🔑</span> Room Access Code
               </span>
-              <div className="flex items-center gap-2">
-                <div className="h-11 px-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shadow-inner">
-                  <span className="text-2xl sm:text-3xl font-black tracking-widest text-amber-400 font-mono select-all">
-                    {currentCode}
-                  </span>
-                </div>
-                <button
-                  onClick={handleCopyCode}
-                  className={`h-11 px-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm ${
-                    copiedCode
-                      ? 'bg-emerald-500 text-slate-950 shadow'
-                      : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-400'
-                  }`}
-                  title="Copy 5-letter code"
-                >
-                  {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedCode ? 'Copied' : 'Copy'}</span>
-                </button>
-              </div>
+              <span className="text-amber-400 font-mono text-[10px]">
+                {isHost ? 'Host Controls Active' : 'Enter In-Game'}
+              </span>
             </div>
 
-            {/* Right: Actions Stack */}
-            <div className="flex flex-col gap-1.5 sm:items-end">
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5 h-4">
-                <span>🚀</span> Invite Contenders
-              </span>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                {isHost && (
-                  <button
-                    onClick={handleGenerateNewCode}
-                    disabled={isRegenerating}
-                    className="h-11 px-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-400 active:scale-98 shadow disabled:opacity-50 shrink-0"
-                    title="Generate a fresh new Room Code"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
-                    <span>{isRegenerating ? '...' : 'New Code'}</span>
-                  </button>
-                )}
-
-                <button
-                  onClick={handleCopyLink}
-                  className={`h-11 flex-1 sm:flex-initial px-4 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md ${
-                    copiedLink
-                      ? 'bg-emerald-500 text-slate-950 font-black'
-                      : 'bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black active:scale-98'
-                  }`}
-                >
-                  {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  <span>{copiedLink ? 'Link Copied!' : 'Copy Invite Link'}</span>
-                </button>
-
-                {typeof navigator !== 'undefined' && 'share' in navigator && (
-                  <button
-                    onClick={handleNativeShare}
-                    className="h-11 w-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 hover:border-amber-400 cursor-pointer flex items-center justify-center transition-colors shrink-0 shadow-sm"
-                    title="Share via WhatsApp or Apps"
-                  >
-                    <Share2 className="w-4 h-4" />
-                  </button>
-                )}
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 pt-0.5">
+              {/* Big Monospace Code Display */}
+              <div className="flex-1 min-w-[150px] h-12 px-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between shadow-inner">
+                <span className="text-2xl sm:text-3xl font-black tracking-widest text-amber-400 font-mono select-all">
+                  {currentCode}
+                </span>
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-amber-400/10 text-amber-300 border border-amber-400/20">
+                  5-Letter
+                </span>
               </div>
+
+              {/* Copy Code Button */}
+              <button
+                onClick={handleCopyCode}
+                className={`h-12 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm shrink-0 ${
+                  copiedCode
+                    ? 'bg-emerald-500 text-slate-950 shadow'
+                    : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-400 active:scale-98'
+                }`}
+                title="Copy 5-letter code"
+              >
+                {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
+              </button>
+
+              {/* Generate New Code Button (Host Only) */}
+              {isHost && (
+                <button
+                  onClick={handleGenerateNewCode}
+                  disabled={isRegenerating}
+                  className="h-12 px-3.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 hover:border-amber-400 active:scale-98 shadow disabled:opacity-50 shrink-0"
+                  title="Generate a fresh new Room Code"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin text-amber-400' : 'text-slate-400'}`} />
+                  <span>{isRegenerating ? '...' : 'New Code'}</span>
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Clickable Full Invite URL Banner */}
-          <div
-            onClick={handleCopyLink}
-            className="group flex items-center justify-between gap-2.5 text-[11px] text-slate-400 font-mono bg-slate-900/90 hover:bg-slate-850 px-3.5 py-2.5 rounded-xl border border-slate-800 hover:border-amber-500/50 cursor-pointer transition-colors"
-            title="Click to copy invite link"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-amber-400 text-xs shrink-0">🔗</span>
-              <span className="truncate select-all text-slate-300 group-hover:text-amber-300 transition-colors">
-                {shareUrl}
-              </span>
-            </div>
-            <span
-              className={`text-[10px] font-sans font-black uppercase shrink-0 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors ${
-                copiedLink
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                  : 'bg-slate-800 text-amber-400 border border-slate-700 group-hover:border-amber-500/40'
-              }`}
-            >
-              {copiedLink ? '✓ Copied' : 'Copy'}
+          {/* Row 2: Invite Link Bar & Link Actions */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
+              <span>🔗</span> Direct Invite Link
             </span>
+
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 pt-0.5">
+              {/* Clickable URL Preview */}
+              <div
+                onClick={handleCopyLink}
+                className="group flex-1 min-w-[200px] h-12 px-3.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-500/50 flex items-center gap-2.5 cursor-pointer transition-colors shadow-inner"
+                title="Click to copy invite link"
+              >
+                <span className="text-amber-400 text-sm shrink-0">🌐</span>
+                <span className="truncate text-xs font-mono text-slate-300 group-hover:text-amber-300 transition-colors select-all">
+                  {shareUrl}
+                </span>
+              </div>
+
+              {/* Copy Invite Link Button */}
+              <button
+                onClick={handleCopyLink}
+                className={`h-12 px-4 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shrink-0 ${
+                  copiedLink
+                    ? 'bg-emerald-500 text-slate-950 font-black'
+                    : 'bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black active:scale-98'
+                }`}
+              >
+                {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedLink ? 'Link Copied!' : 'Copy Link'}</span>
+              </button>
+
+              {/* Native Share Button */}
+              {typeof navigator !== 'undefined' && 'share' in navigator && (
+                <button
+                  onClick={handleNativeShare}
+                  className="h-12 w-12 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 hover:border-amber-400 cursor-pointer flex items-center justify-center transition-colors shrink-0 shadow-sm"
+                  title="Share via WhatsApp or Apps"
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Quick Helper Tip */}
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-            <span>💡</span>
-            <span>
-              Friends can join by entering code <strong className="text-amber-400 font-mono">{currentCode}</strong> or clicking the link.
+          <div className="flex items-center gap-2 text-[11px] text-slate-400 bg-slate-900/60 px-3.5 py-2.5 rounded-xl border border-slate-800/60">
+            <span className="text-amber-400 text-xs shrink-0">💡</span>
+            <span className="leading-snug">
+              Friends can join by entering code <strong className="text-amber-400 font-mono">{currentCode}</strong> or opening the link in their browser.
             </span>
           </div>
         </div>
