@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GameRules, SharkThemeId, SharkLayoutPresetId } from '../types/game';
 import { sound } from '../utils/audio';
 import { gameApi } from '../utils/apiClient';
+import { detectRoomCodeFromCurrentUrl, extractRoomCode } from '../utils/roomLink';
 import { AnimatedBoardHero } from './AnimatedBoardHero';
 import { SHARK_THEMES, SHARK_THEMES_LIST } from '../utils/sharkThemes';
 import { SHARK_LAYOUT_PRESETS, SHARK_LAYOUT_PRESETS_LIST } from '../utils/boardPresets';
@@ -59,67 +60,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [hasInviteFromUrl, setHasInviteFromUrl] = useState(false);
 
-  // Helper to extract clean alphanumeric room code from raw input or full URLs
-  const extractRoomCode = (raw: string): string => {
-    if (!raw) return '';
-    const trimmed = raw.trim();
-
-    // 1. Look for ?room=CODE, ?join=CODE, &code=CODE in query strings or hashes
-    const paramMatch = trimmed.match(/[?&#](?:room|join|code)=([a-zA-Z0-9]+)/i);
-    if (paramMatch && paramMatch[1]) {
-      return paramMatch[1].slice(0, 6).toUpperCase();
-    }
-
-    // 2. Look for /room/CODE or /join/CODE in URL paths
-    const pathMatch = trimmed.match(/(?:\/room\/|\/join\/)([a-zA-Z0-9]+)/i);
-    if (pathMatch && pathMatch[1]) {
-      return pathMatch[1].slice(0, 6).toUpperCase();
-    }
-
-    // 3. Look for "code: CODE" or "room: CODE" or "code is CODE" in pasted messages
-    const textMatch = trimmed.match(/(?:code|room)(?:\s+is|\s*:|\s*=\s*|\s+)\s*([a-zA-Z0-9]{4,6})/i);
-    if (textMatch && textMatch[1]) {
-      return textMatch[1].toUpperCase();
-    }
-
-    // 4. If it looks like a URL (starts with http, https, www, or contains ://) but didn't match:
-    // Try finding a 4-6 char token at the very end of URL path
-    if (/^(?:https?:\/\/|www\.)/i.test(trimmed) || trimmed.includes('://')) {
-      const endMatch = trimmed.match(/\/([a-zA-Z0-9]{4,6})(?:[/?#]|$)/);
-      if (endMatch && endMatch[1]) {
-        return endMatch[1].toUpperCase();
-      }
-      return '';
-    }
-
-    // 5. Direct room code typed or pasted: strip spaces/symbols, limit to 6 chars
-    return trimmed.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase();
-  };
-
-  // Check URL query param or hash for ?room=CODE or ?join=CODE
+  // Check URL query params, hash, and full URL for Netlify share links (?room=CODE, #room=CODE)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const searchParams = new URLSearchParams(window.location.search);
-      let roomParam = searchParams.get('room') || searchParams.get('join') || searchParams.get('code');
-
-      // Also support hash routing (#/?room=CODE or #room=CODE)
-      if (!roomParam && window.location.hash) {
-        const hash = window.location.hash;
-        const match = hash.match(/[?&#](?:room|join|code)=([a-zA-Z0-9]+)/i) || hash.match(/#(?:room\/)?([a-zA-Z0-9]{4,6})/i);
-        if (match && match[1]) {
-          roomParam = match[1];
-        }
-      }
-
-      if (roomParam) {
-        const clean = extractRoomCode(roomParam);
-        if (clean) {
-          setSelectedMainMode('remote');
-          setRemoteSubTab('join');
-          setJoinRoomCode(clean);
-          setHasInviteFromUrl(true);
-        }
-      }
+    const detected = detectRoomCodeFromCurrentUrl();
+    if (detected) {
+      setSelectedMainMode('remote');
+      setRemoteSubTab('join');
+      setJoinRoomCode(detected);
+      setHasInviteFromUrl(true);
     }
   }, []);
 

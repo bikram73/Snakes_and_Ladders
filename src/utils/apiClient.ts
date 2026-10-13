@@ -38,9 +38,96 @@ let broadcastChannel: BroadcastChannel | null = null;
 if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
   try {
     broadcastChannel = new BroadcastChannel('snakes_and_ladders_sync');
+    broadcastChannel.onmessage = (event) => {
+      if (event.data?.type === 'ROOM_SYNC' && event.data.room?.code) {
+        localRooms.set(event.data.room.code.toUpperCase(), event.data.room);
+      }
+    };
   } catch (e) {
     // Ignore fallback
   }
+}
+
+// Cloud Relay for cross-device multiplayer on static Netlify deployments
+const CLOUD_RELAY_TOPIC_PREFIX = 'sl_arenasync_';
+
+function syncLocalRoom(room: RoomState) {
+  const code = room.code.toUpperCase();
+  localRooms.set(code, room);
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(`snakes_room_${code}`, JSON.stringify(room));
+    } catch (e) {}
+  }
+  if (broadcastChannel) {
+    try {
+      broadcastChannel.postMessage({ type: 'ROOM_SYNC', room });
+    } catch (e) {}
+  }
+}
+
+async function relayPublishRoom(room: RoomState): Promise<void> {
+  syncLocalRoom(room);
+  try {
+    const topic = `${CLOUD_RELAY_TOPIC_PREFIX}${room.code.toUpperCase()}`;
+    await fetch(`https://ntfy.sh/${topic}`, {
+      method: 'POST',
+      headers: {
+        Title: 'room_sync',
+        Priority: 'urgent',
+      },
+      body: JSON.stringify(room),
+    });
+  } catch (e) {
+    // Relay publish non-blocking fallback
+  }
+}
+
+async function relayFetchRoom(code: string): Promise<RoomState | null> {
+  const cleanCode = code.trim().toUpperCase();
+  let localFound = localRooms.get(cleanCode);
+  if (!localFound && typeof localStorage !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(`snakes_room_${cleanCode}`);
+      if (stored) localFound = JSON.parse(stored);
+    } catch (e) {}
+  }
+
+  try {
+    const topic = `${CLOUD_RELAY_TOPIC_PREFIX}${cleanCode}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2600);
+    const res = await fetch(`https://ntfy.sh/${topic}/json?poll=1`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const text = await res.text();
+      const lines = text.trim().split('\n').filter(Boolean);
+      for (let i = lines.length - 1; i >= 0; i--) {
+        try {
+          const lineObj = JSON.parse(lines[i]);
+          if (lineObj && lineObj.message) {
+            const parsedRoom = JSON.parse(lineObj.message);
+            if (parsedRoom && parsedRoom.code && Array.isArray(parsedRoom.players)) {
+              if (
+                !localFound ||
+                (parsedRoom.last_updated && parsedRoom.last_updated >= (localFound.last_updated || 0))
+              ) {
+                syncLocalRoom(parsedRoom);
+                return parsedRoom as RoomState;
+              }
+            }
+          }
+        } catch (e) {}
+      }
+    }
+  } catch (e) {
+    // Network or abort timeout
+  }
+
+  return localFound || null;
 }
 
 function generateRoomCode(): string {
@@ -328,12 +415,7 @@ export const gameApi = {
       last_updated: Date.now(),
     };
 
-    localRooms.set(code, room);
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem(`snakes_room_${code}`, JSON.stringify(room));
-      } catch (e) {}
-    }
+    await relayPublishRoom(room);
 
     return {
       success: true,
@@ -361,25 +443,13 @@ export const gameApi = {
     if (serverAttempt.hasServer && serverAttempt.data) {
       if (serverAttempt.data.success) {
         if (serverAttempt.data.room) {
-          localRooms.set(code, serverAttempt.data.room);
-          if (typeof localStorage !== 'undefined') {
-            try {
-              localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
-            } catch (e) {}
-          }
+          await relayPublishRoom(serverAttempt.data.room);
         }
         return serverAttempt.data;
       }
 
       // If server does not have the room, check local cache (e.g. server was restarted or tab was opened)
-      let localFound = localRooms.get(code);
-      if (!localFound && typeof localStorage !== 'undefined') {
-        try {
-          const stored = localStorage.getItem(`snakes_room_${code}`);
-          if (stored) localFound = JSON.parse(stored);
-        } catch (e) {}
-      }
-
+      const localFound = await relayFetchRoom(code);
       if (localFound) {
         try {
           await tryFetchJson('/api/room/sync', {
@@ -396,6 +466,7 @@ export const gameApi = {
             }),
           });
           if (retry.hasServer && retry.data && retry.data.success) {
+            if (retry.data.room) await relayPublishRoom(retry.data.room);
             return retry.data;
           }
         } catch (e) {}
@@ -404,21 +475,15 @@ export const gameApi = {
       }
     }
 
-    // Static Netlify Fallback
-    let room = localRooms.get(code);
-    if (!room && typeof localStorage !== 'undefined') {
-      try {
-        const stored = localStorage.getItem(`snakes_room_${code}`);
-        if (stored) room = JSON.parse(stored);
-      } catch (e) {}
-    }
+    // Static Netlify Fallback: fetch room from cloud relay / local cache
+    const room = await relayFetchRoom(code);
 
     if (!room) {
       return {
         success: false,
         room_code: code,
         player_id: -1,
-        error: `Room code "${code}" not found.`,
+        error: `Room code "${code}" not found. Please confirm the code with the host.`,
       };
     }
 
@@ -443,13 +508,7 @@ export const gameApi = {
 
     room.players.push(newPlayer);
     room.last_updated = Date.now();
-    localRooms.set(code, room);
-
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem(`snakes_room_${code}`, JSON.stringify(room));
-      } catch (e) {}
-    }
+    await relayPublishRoom(room);
 
     return {
       success: true,
@@ -470,24 +529,13 @@ export const gameApi = {
     if (serverAttempt.hasServer && serverAttempt.data) {
       if (serverAttempt.data.success) {
         if (serverAttempt.data.room) {
-          localRooms.set(code, serverAttempt.data.room);
-          if (typeof localStorage !== 'undefined') {
-            try {
-              localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
-            } catch (e) {}
-          }
+          syncLocalRoom(serverAttempt.data.room);
         }
         return serverAttempt.data;
       }
 
-      // Check if room is in local cache and restore to server
-      let localFound = localRooms.get(code);
-      if (!localFound && typeof localStorage !== 'undefined') {
-        try {
-          const stored = localStorage.getItem(`snakes_room_${code}`);
-          if (stored) localFound = JSON.parse(stored);
-        } catch (e) {}
-      }
+      // Check if room is in local cache/relay and restore to server
+      const localFound = await relayFetchRoom(code);
       if (localFound) {
         try {
           await tryFetchJson('/api/room/sync', {
@@ -501,26 +549,20 @@ export const gameApi = {
       }
     }
 
-    // Static Netlify Fallback
-    let room = localRooms.get(code);
-    if (!room && typeof localStorage !== 'undefined') {
-      try {
-        const stored = localStorage.getItem(`snakes_room_${code}`);
-        if (stored) room = JSON.parse(stored);
-      } catch (e) {}
-    }
+    // Static Netlify Fallback: fetch from cloud relay and local storage
+    const room = await relayFetchRoom(code);
 
     if (!room) {
       return { success: false, error: 'Room not found' };
     }
 
     const curr = room.players[room.current_player] || room.players[0];
-    const isMyTurn = playerId !== undefined && playerId === curr.id && room.status === 'playing';
+    const isMyTurn = playerId !== undefined && playerId === curr?.id && room.status === 'playing';
 
     return {
       success: true,
       room,
-      current_player_name: curr.name,
+      current_player_name: curr ? curr.name : '',
       is_my_turn: isMyTurn,
     };
   },
@@ -536,24 +578,12 @@ export const gameApi = {
 
     if (serverAttempt.hasServer && serverAttempt.data) {
       if (serverAttempt.data.room) {
-        localRooms.set(code, serverAttempt.data.room);
-        if (typeof localStorage !== 'undefined') {
-          try {
-            localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
-          } catch (e) {}
-        }
+        await relayPublishRoom(serverAttempt.data.room);
       }
       return serverAttempt.data;
     }
 
-    let room = localRooms.get(code);
-    if (!room && typeof localStorage !== 'undefined') {
-      try {
-        const stored = localStorage.getItem(`snakes_room_${code}`);
-        if (stored) room = JSON.parse(stored);
-      } catch (e) {}
-    }
-
+    const room = await relayFetchRoom(code);
     if (!room) return { success: false, error: 'Room not found' };
 
     room.status = 'playing';
@@ -561,13 +591,7 @@ export const gameApi = {
     room.game_over = false;
     room.winner = null;
     room.last_updated = Date.now();
-    localRooms.set(code, room);
-
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem(`snakes_room_${code}`, JSON.stringify(room));
-      } catch (e) {}
-    }
+    await relayPublishRoom(room);
 
     return { success: true, room };
   },
@@ -583,24 +607,12 @@ export const gameApi = {
 
     if (serverAttempt.hasServer && serverAttempt.data) {
       if (serverAttempt.data.room) {
-        localRooms.set(code, serverAttempt.data.room);
-        if (typeof localStorage !== 'undefined') {
-          try {
-            localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
-          } catch (e) {}
-        }
+        await relayPublishRoom(serverAttempt.data.room);
       }
       return serverAttempt.data;
     }
 
-    let room = localRooms.get(code);
-    if (!room && typeof localStorage !== 'undefined') {
-      try {
-        const stored = localStorage.getItem(`snakes_room_${code}`);
-        if (stored) room = JSON.parse(stored);
-      } catch (e) {}
-    }
-
+    const room = await relayFetchRoom(code);
     if (!room) {
       return {
         success: false,
@@ -679,12 +691,7 @@ export const gameApi = {
     });
 
     room.last_updated = Date.now();
-    localRooms.set(code, room);
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem(`snakes_room_${code}`, JSON.stringify(room));
-      } catch (e) {}
-    }
+    await relayPublishRoom(room);
 
     return {
       success: true,
@@ -718,24 +725,12 @@ export const gameApi = {
 
     if (serverAttempt.hasServer && serverAttempt.data) {
       if (serverAttempt.data.room) {
-        localRooms.set(code, serverAttempt.data.room);
-        if (typeof localStorage !== 'undefined') {
-          try {
-            localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
-          } catch (e) {}
-        }
+        await relayPublishRoom(serverAttempt.data.room);
       }
       return serverAttempt.data;
     }
 
-    let room = localRooms.get(code);
-    if (!room && typeof localStorage !== 'undefined') {
-      try {
-        const stored = localStorage.getItem(`snakes_room_${code}`);
-        if (stored) room = JSON.parse(stored);
-      } catch (e) {}
-    }
-
+    const room = await relayFetchRoom(code);
     if (!room) return { success: false, error: 'Room not found' };
 
     room.players.forEach((p) => {
@@ -748,13 +743,7 @@ export const gameApi = {
     room.last_dice = null;
     room.move_history = [];
     room.last_updated = Date.now();
-
-    localRooms.set(code, room);
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem(`snakes_room_${code}`, JSON.stringify(room));
-      } catch (e) {}
-    }
+    await relayPublishRoom(room);
 
     return { success: true, room };
   },
@@ -770,25 +759,13 @@ export const gameApi = {
 
     if (serverAttempt.hasServer && serverAttempt.data) {
       if (serverAttempt.data.room) {
-        localRooms.set(code, serverAttempt.data.room);
-        if (typeof localStorage !== 'undefined') {
-          try {
-            localStorage.setItem(`snakes_room_${code}`, JSON.stringify(serverAttempt.data.room));
-          } catch (e) {}
-        }
+        await relayPublishRoom(serverAttempt.data.room);
       }
       return serverAttempt.data;
     }
 
     // Static Netlify Fallback
-    let room = localRooms.get(code);
-    if (!room && typeof localStorage !== 'undefined') {
-      try {
-        const stored = localStorage.getItem(`snakes_room_${code}`);
-        if (stored) room = JSON.parse(stored);
-      } catch (e) {}
-    }
-
+    const room = await relayFetchRoom(code);
     if (!room) return { success: false, error: 'Room not found' };
 
     const pid = Number(playerId);
@@ -855,12 +832,7 @@ export const gameApi = {
     }
 
     room.last_updated = Date.now();
-    localRooms.set(code, room);
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem(`snakes_room_${code}`, JSON.stringify(room));
-      } catch (e) {}
-    }
+    await relayPublishRoom(room);
 
     return { success: true, room };
   },

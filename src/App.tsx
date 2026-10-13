@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GameRules, MoveLog, Player, RollApiResponse, NewGameApiResponse, RoomState } from './types/game';
 import { gameApi } from './utils/apiClient';
+import { buildShareUrl, syncBrowserUrlWithRoom, copyToClipboard } from './utils/roomLink';
 import { GameBoard } from './components/GameBoard';
 import { Dice3D } from './components/Dice3D';
 import { LandingPage } from './components/LandingPage';
@@ -165,6 +166,7 @@ export default function App() {
     setMyPlayerId(playerId);
     setIsRoomHost(isHost);
     setIsRemoteMatch(true);
+    syncBrowserUrlWithRoom(code);
     setCurrentView('lobby');
   }, []);
 
@@ -191,6 +193,7 @@ export default function App() {
         if (room.last_exit_event?.timestamp) {
           lastProcessedExitTimestampRef.current = room.last_exit_event.timestamp;
         }
+        syncBrowserUrlWithRoom(room.code);
         setCurrentView('game');
 
         const currP = room.players[room.current_player];
@@ -212,6 +215,7 @@ export default function App() {
       setIsRemoteMatch(false);
       setRoomCode(null);
       setMyPlayerId(null);
+      syncBrowserUrlWithRoom(null);
       setCurrentView('landing');
       return;
     }
@@ -222,15 +226,7 @@ export default function App() {
       console.error('Error leaving room:', e);
     }
 
-    if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('room');
-        url.searchParams.delete('join');
-        url.searchParams.delete('code');
-        window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
-      } catch (e) {}
-    }
+    syncBrowserUrlWithRoom(null);
 
     setIsRemoteMatch(false);
     setRoomCode(null);
@@ -656,13 +652,14 @@ export default function App() {
     setRules((prev) => ({ ...prev, soundEnabled: next }));
   };
 
-  const handleCopyInviteLink = () => {
+  const handleCopyInviteLink = async () => {
     sound.playClick();
-    const link = typeof window !== 'undefined' ? `${window.location.origin}/?room=${roomCode}` : `?room=${roomCode}`;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(link);
+    if (!roomCode) return;
+    const link = buildShareUrl(roomCode);
+    const ok = await copyToClipboard(link);
+    if (ok) {
       setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
+      setTimeout(() => setCopiedLink(false), 2200);
     }
   };
 

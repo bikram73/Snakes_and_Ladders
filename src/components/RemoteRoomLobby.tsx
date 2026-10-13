@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { sound } from '../utils/audio';
 import { gameApi } from '../utils/apiClient';
+import { buildShareUrl, syncBrowserUrlWithRoom, copyToClipboard } from '../utils/roomLink';
 import { RoomState } from '../types/game';
 import {
   Users,
@@ -79,58 +80,17 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
     };
   }, [currentCode, playerId, onStartMatch]);
 
-  // Keep browser address bar in sync so copying the browser URL also works
+  // Keep browser address bar in sync with both query param and hash for Netlify reliability
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.history && window.history.replaceState && currentCode) {
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.set('room', currentCode);
-        window.history.replaceState({}, '', url.toString());
-      } catch (e) {}
-    }
+    syncBrowserUrlWithRoom(currentCode);
   }, [currentCode]);
 
-  // Build clean, robust shareable URL
-  const getShareUrl = () => {
-    if (typeof window === 'undefined') return `?room=${currentCode}`;
-    const origin = window.location.origin;
-    const pathname = window.location.pathname.replace(/\/+$/, '') || '';
-    return `${origin}${pathname}/?room=${currentCode}`;
-  };
-
-  const shareUrl = getShareUrl();
-
-  // Robust clipboard copy with fallback
-  const copyTextToClipboard = async (text: string): Promise<boolean> => {
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(text);
-        return true;
-      }
-    } catch (e) {
-      // fallback
-    }
-
-    try {
-      const textArea = document.createElement('textarea');
-      textArea.value = text;
-      textArea.style.position = 'fixed';
-      textArea.style.opacity = '0';
-      textArea.style.left = '-9999px';
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      const success = document.execCommand('copy');
-      document.body.removeChild(textArea);
-      return success;
-    } catch (e) {
-      return false;
-    }
-  };
+  // Clean, Netlify-proof shareable URL (no double slashes, includes both ?room=CODE and #room=CODE)
+  const shareUrl = buildShareUrl(currentCode);
 
   const handleCopyLink = async () => {
     sound.playClick();
-    const ok = await copyTextToClipboard(shareUrl);
+    const ok = await copyToClipboard(shareUrl);
     if (ok) {
       setCopiedLink(true);
       setNotification('🔗 Invite Link copied to clipboard!');
@@ -143,7 +103,7 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
 
   const handleCopyCode = async () => {
     sound.playClick();
-    const ok = await copyTextToClipboard(currentCode);
+    const ok = await copyToClipboard(currentCode);
     if (ok) {
       setCopiedCode(true);
       setNotification(`🔑 Room Code "${currentCode}" copied to clipboard!`);
@@ -156,7 +116,7 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
 
   const handleNativeShare = async () => {
     sound.playClick();
-    if (navigator.share) {
+    if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
           title: 'Join my Snake & Ladder match!',
@@ -165,7 +125,7 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
         });
         return;
       } catch (err) {
-        // Fallback to copy link
+        // User cancelled or share unsupported
       }
     }
     handleCopyLink();
