@@ -18,6 +18,17 @@ import { ExitMatchModal } from './components/ExitMatchModal';
 import { VictoryModal } from './components/VictoryModal';
 import { MoveLogDrawer } from './components/MoveLogDrawer';
 import { SharkThemeModal } from './components/SharkThemeModal';
+import { InitialPlayerModal } from './components/InitialPlayerModal';
+import {
+  PlayerProfile,
+  SavedGameState,
+  getStoredPlayerProfile,
+  hasStoredPlayer,
+  savePlayerProfile,
+  saveActiveGameState,
+  loadSavedGameState,
+  clearSavedGameState,
+} from './utils/playerStorage';
 import { SHARK_THEMES, SharkThemeId, SharkLayoutPresetId } from './utils/sharkThemes';
 import { sound } from './utils/audio';
 import {
@@ -51,16 +62,24 @@ const DEFAULT_RULES: GameRules = {
 };
 
 export default function App() {
+  // Player Profile & Browser Storage
+  const [playerProfile, setPlayerProfile] = useState<PlayerProfile>(() => getStoredPlayerProfile());
+  const [showInitialPlayerModal, setShowInitialPlayerModal] = useState<boolean>(() => !hasStoredPlayer());
+  const [savedGame, setSavedGame] = useState<SavedGameState | null>(() => loadSavedGameState());
+
   // Current View: 'landing' | 'lobby' | 'game'
   const [currentView, setCurrentView] = useState<'landing' | 'lobby' | 'game'>('landing');
 
   // Game session & state
   const [gameId, setGameId] = useState<string | null>(null);
   const [activeModeTitle, setActiveModeTitle] = useState<string>('Player vs Computer');
-  const [players, setPlayers] = useState<Player[]>([
-    { id: 0, name: 'Player 1', position: 0, is_computer: false, color: 'red', avatar: '🔴' },
-    { id: 1, name: 'Bot Nova', position: 0, is_computer: true, color: 'blue', avatar: '🔵' },
-  ]);
+  const [players, setPlayers] = useState<Player[]>(() => {
+    const prof = getStoredPlayerProfile();
+    return [
+      { id: 0, name: prof.name || 'Player 1', position: 0, is_computer: false, color: prof.color || 'red', avatar: prof.avatar || '🔴' },
+      { id: 1, name: 'Bot Nova', position: 0, is_computer: true, color: 'blue', avatar: '🔵' },
+    ];
+  });
   const [currentPlayerId, setCurrentPlayerId] = useState<number>(0);
   const [gameOver, setGameOver] = useState<boolean>(false);
   const [winner, setWinner] = useState<Player | null>(null);
@@ -281,6 +300,83 @@ export default function App() {
       console.error('Error restarting game:', err);
     }
   }, [isRemoteMatch, roomCode, myPlayerId, gameId]);
+
+  // Resume match from browser local storage
+  const handleResumeSavedGame = useCallback(() => {
+    const saved = loadSavedGameState();
+    if (!saved) return;
+    setGameId(saved.gameId);
+    setActiveModeTitle(saved.activeModeTitle);
+    setPlayers(saved.players);
+    setCurrentPlayerId(saved.currentPlayerId);
+    setGameOver(saved.gameOver);
+    setWinner(saved.winner);
+    setWinReason(saved.winReason);
+    setLastDice(saved.lastDice);
+    setRules(saved.rules);
+    setMoveLogs(saved.moveLogs || []);
+    setStatusMessage(saved.statusMessage);
+    setIsRemoteMatch(saved.isRemoteMatch);
+    setRoomCode(saved.roomCode);
+    setMyPlayerId(saved.myPlayerId);
+    setIsRoomHost(saved.isRoomHost);
+    setCurrentView('game');
+    if (saved.isRemoteMatch && saved.roomCode) {
+      syncBrowserUrlWithRoom(saved.roomCode);
+    }
+    sound.playPowerup();
+  }, []);
+
+  // Discard saved game
+  const handleDiscardSavedGame = useCallback(() => {
+    sound.playClick();
+    clearSavedGameState();
+    setSavedGame(null);
+  }, []);
+
+  // Auto-save game state to local browser storage whenever game progresses
+  useEffect(() => {
+    if (currentView === 'game' && players.length > 0 && !isAnimatingMove && !isRolling) {
+      saveActiveGameState({
+        currentView: 'game',
+        gameId,
+        activeModeTitle,
+        players,
+        currentPlayerId,
+        gameOver,
+        winner,
+        winReason,
+        lastDice,
+        rules,
+        moveLogs,
+        statusMessage,
+        isRemoteMatch,
+        roomCode,
+        myPlayerId,
+        isRoomHost,
+      });
+      setSavedGame(loadSavedGameState());
+    }
+  }, [
+    currentView,
+    gameId,
+    activeModeTitle,
+    players,
+    currentPlayerId,
+    gameOver,
+    winner,
+    winReason,
+    lastDice,
+    rules,
+    moveLogs,
+    statusMessage,
+    isRemoteMatch,
+    roomCode,
+    myPlayerId,
+    isRoomHost,
+    isAnimatingMove,
+    isRolling,
+  ]);
 
   // Execute turn animation sequence
   const executeStepAnimation = useCallback(async (
@@ -665,13 +761,48 @@ export default function App() {
 
   // If on Landing Page, render LandingPage component
   if (currentView === 'landing') {
+    const ongoingSaved = savedGame && !savedGame.gameOver && savedGame.players.length > 0;
+    const currP = ongoingSaved ? savedGame.players[savedGame.currentPlayerId] : null;
+
     return (
-      <LandingPage
-        onStartGame={handleStartLocalGame}
-        onOpenRemoteLobby={handleOpenRemoteLobby}
-        initialRules={rules}
-        onUpdateRules={setRules}
-      />
+      <>
+        <LandingPage
+          onStartGame={handleStartLocalGame}
+          onOpenRemoteLobby={handleOpenRemoteLobby}
+          initialRules={rules}
+          onUpdateRules={setRules}
+          playerProfile={playerProfile}
+          onOpenProfileModal={() => setShowInitialPlayerModal(true)}
+          savedGameAvailable={Boolean(ongoingSaved)}
+          savedGameDetails={
+            ongoingSaved && currP
+              ? {
+                  modeTitle: savedGame.activeModeTitle,
+                  playerCount: savedGame.players.length,
+                  currentPlayerName: currP.name,
+                  currentPlayerPos: currP.position,
+                }
+              : null
+          }
+          onResumeSavedGame={handleResumeSavedGame}
+          onDiscardSavedGame={handleDiscardSavedGame}
+        />
+        <InitialPlayerModal
+          isOpen={showInitialPlayerModal}
+          isFirstTime={!hasStoredPlayer()}
+          onClose={() => setShowInitialPlayerModal(false)}
+          onSave={(updated) => {
+            setPlayerProfile(updated);
+            setPlayers((prev) =>
+              prev.map((p, idx) =>
+                idx === 0
+                  ? { ...p, name: updated.name, avatar: updated.avatar, color: updated.color }
+                  : p
+              )
+            );
+          }}
+        />
+      </>
     );
   }
 
@@ -728,6 +859,20 @@ export default function App() {
 
         {/* Action Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Player Profile Chip */}
+          <button
+            onClick={() => {
+              sound.playClick();
+              setShowInitialPlayerModal(true);
+            }}
+            className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-200 hover:text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm group"
+            title="Edit player name in browser storage"
+          >
+            <span className="text-sm">{playerProfile.avatar || '🔴'}</span>
+            <span className="max-w-[70px] sm:max-w-[100px] truncate">{playerProfile.name || 'Player 1'}</span>
+            <span className="text-[10px] text-amber-400 opacity-75 group-hover:opacity-100">✏️</span>
+          </button>
+
           {/* Online Match Exit Button */}
           {isRemoteMatch && (
             <button
@@ -1059,6 +1204,8 @@ export default function App() {
             handleRestartMatch();
           }}
           onMainMenu={() => {
+            clearSavedGameState();
+            setSavedGame(null);
             if (isRemoteMatch) {
               setIsRemoteMatch(false);
               setRoomCode(null);
@@ -1068,6 +1215,23 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Initial Player Profile Modal */}
+      <InitialPlayerModal
+        isOpen={showInitialPlayerModal}
+        isFirstTime={!hasStoredPlayer()}
+        onClose={() => setShowInitialPlayerModal(false)}
+        onSave={(updated) => {
+          setPlayerProfile(updated);
+          setPlayers((prev) =>
+            prev.map((p, idx) =>
+              idx === 0
+                ? { ...p, name: updated.name, avatar: updated.avatar, color: updated.color }
+                : p
+            )
+          );
+        }}
+      />
     </div>
   );
 }

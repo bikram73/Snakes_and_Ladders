@@ -3,6 +3,7 @@ import { GameRules, SharkThemeId, SharkLayoutPresetId } from '../types/game';
 import { sound } from '../utils/audio';
 import { gameApi } from '../utils/apiClient';
 import { detectRoomCodeFromCurrentUrl, extractRoomCode } from '../utils/roomLink';
+import { PlayerProfile } from '../utils/playerStorage';
 import { AnimatedBoardHero } from './AnimatedBoardHero';
 import { SHARK_THEMES, SHARK_THEMES_LIST } from '../utils/sharkThemes';
 import { SHARK_LAYOUT_PRESETS, SHARK_LAYOUT_PRESETS_LIST } from '../utils/boardPresets';
@@ -22,6 +23,8 @@ import {
   Trophy,
   Palette,
   Compass,
+  User,
+  RotateCcw,
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -33,6 +36,17 @@ interface LandingPageProps {
   onOpenRemoteLobby: (roomCode: string, playerId: number, isHost: boolean) => void;
   initialRules: GameRules;
   onUpdateRules: (rules: GameRules) => void;
+  playerProfile: PlayerProfile;
+  onOpenProfileModal: () => void;
+  savedGameAvailable?: boolean;
+  savedGameDetails?: {
+    modeTitle: string;
+    playerCount: number;
+    currentPlayerName: string;
+    currentPlayerPos: number;
+  } | null;
+  onResumeSavedGame?: () => void;
+  onDiscardSavedGame?: () => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
@@ -40,6 +54,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenRemoteLobby,
   initialRules,
   onUpdateRules,
+  playerProfile,
+  onOpenProfileModal,
+  savedGameAvailable,
+  savedGameDetails,
+  onResumeSavedGame,
+  onDiscardSavedGame,
 }) => {
   // Main Mode: 'pvc' | 'multiplayer' | 'remote'
   const [selectedMainMode, setSelectedMainMode] = useState<'pvc' | 'multiplayer' | 'remote'>('pvc');
@@ -53,9 +73,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   // Remote Sub-tab: 'host' | 'join'
   const [remoteSubTab, setRemoteSubTab] = useState<'host' | 'join'>('host');
   const [remoteMaxPlayers, setRemoteMaxPlayers] = useState<2 | 3 | 4>(2);
-  const [hostPlayerName, setHostPlayerName] = useState('Host');
+  const [hostPlayerName, setHostPlayerName] = useState(playerProfile.name || 'Host');
   const [joinRoomCode, setJoinRoomCode] = useState('');
-  const [joinPlayerName, setJoinPlayerName] = useState('Guest');
+  const [joinPlayerName, setJoinPlayerName] = useState(playerProfile.name || 'Guest');
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [hasInviteFromUrl, setHasInviteFromUrl] = useState(false);
@@ -72,18 +92,39 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   }, []);
 
   // Player configurations for PvC
-  const [humanPlayerName, setHumanPlayerName] = useState('Player 1');
+  const [humanPlayerName, setHumanPlayerName] = useState(playerProfile.name || 'Player 1');
   const [bot2Name, setBot2Name] = useState('Bot Nova');
   const [bot3Name, setBot3Name] = useState('Bot Blaze');
   const [bot4Name, setBot4Name] = useState('Bot Echo');
 
   // Player configurations for Multiplayer
   const [mpPlayers, setMpPlayers] = useState([
-    { name: 'Player 1', avatar: '🔴', color: 'red' },
+    {
+      name: playerProfile.name || 'Player 1',
+      avatar: playerProfile.avatar || '🔴',
+      color: playerProfile.color || 'red',
+    },
     { name: 'Player 2', avatar: '🔵', color: 'blue' },
     { name: 'Player 3', avatar: '🟢', color: 'green' },
     { name: 'Player 4', avatar: '🟡', color: 'yellow' },
   ]);
+
+  // Keep player fields synced when player updates profile in localStorage
+  useEffect(() => {
+    if (playerProfile.name) {
+      setHumanPlayerName(playerProfile.name);
+      setHostPlayerName(playerProfile.name);
+      setJoinPlayerName(playerProfile.name);
+      setMpPlayers((prev) => [
+        {
+          name: playerProfile.name,
+          avatar: playerProfile.avatar || '🔴',
+          color: playerProfile.color || 'red',
+        },
+        ...prev.slice(1),
+      ]);
+    }
+  }, [playerProfile]);
 
   // House Rules Settings
   const [rules, setRules] = useState<GameRules>(initialRules);
@@ -224,6 +265,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Saved Player Profile Chip */}
+          <button
+            onClick={() => {
+              sound.playClick();
+              onOpenProfileModal();
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-200 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm group"
+            title="Edit Player Profile stored in browser"
+          >
+            <span className="text-sm">{playerProfile.avatar || '🔴'}</span>
+            <span className="max-w-[100px] truncate">{playerProfile.name || 'Set Player'}</span>
+            <span className="text-[10px] text-amber-400 opacity-75 group-hover:opacity-100">✏️</span>
+          </button>
+
           <button
             onClick={() => {
               sound.playClick();
@@ -251,6 +306,50 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
       {/* Main Landing Content Container */}
       <main className="w-full max-w-3xl mx-auto px-4 py-6 flex flex-col gap-6">
+        {/* Saved Match in Progress Banner */}
+        {savedGameAvailable && savedGameDetails && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-sky-950/80 via-slate-900 to-indigo-950/80 border-2 border-sky-400/80 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-400/40 text-sky-300 font-black flex items-center justify-center text-xl shadow-lg shrink-0">
+                💾
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-black uppercase text-sky-400 tracking-wider px-2 py-0.5 rounded bg-sky-400/10 border border-sky-400/30">
+                    Saved Match in Progress
+                  </span>
+                  <span className="text-xs text-white font-black">
+                    {savedGameDetails.modeTitle}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-1">
+                  Turn: <strong className="text-amber-400">{savedGameDetails.currentPlayerName}</strong> (Tile{' '}
+                  <span className="font-mono text-amber-300 font-bold">{savedGameDetails.currentPlayerPos}</span>
+                  /100) • {savedGameDetails.playerCount} Players
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <button
+                onClick={onResumeSavedGame}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-400 to-blue-500 hover:from-sky-300 hover:to-blue-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Resume Game</span>
+              </button>
+              {onDiscardSavedGame && (
+                <button
+                  onClick={onDiscardSavedGame}
+                  className="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-rose-950/80 border border-slate-700 hover:border-rose-600 text-slate-400 hover:text-rose-200 text-xs font-bold transition-all cursor-pointer"
+                  title="Discard saved game and start fresh"
+                >
+                  Discard
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         {/* Prominent Invite Link Banner when opening via shared link (?room=CODE) */}
         {hasInviteFromUrl && joinRoomCode && (
           <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-amber-400/15 to-yellow-500/20 border-2 border-amber-400 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">

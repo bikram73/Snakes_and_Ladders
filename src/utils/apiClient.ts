@@ -33,6 +33,31 @@ interface LocalGameSession {
 const localGames = new Map<string, LocalGameSession>();
 const localRooms = new Map<string, RoomState>();
 
+function saveLocalGame(session: LocalGameSession): void {
+  localGames.set(session.game_id, session);
+  if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(`snakes_game_${session.game_id}`, JSON.stringify(session));
+    } catch (e) {}
+  }
+}
+
+function getLocalGame(gameId: string): LocalGameSession | null {
+  let session = localGames.get(gameId);
+  if (!session && typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(`snakes_game_${gameId}`);
+      if (raw) {
+        session = JSON.parse(raw);
+        if (session) {
+          localGames.set(gameId, session);
+        }
+      }
+    } catch (e) {}
+  }
+  return session || null;
+}
+
 // BroadcastChannel for cross-tab multiplayer simulation on same device/browser on static hosts
 let broadcastChannel: BroadcastChannel | null = null;
 if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
@@ -208,7 +233,7 @@ export const gameApi = {
       move_history: [],
     };
 
-    localGames.set(gameId, session);
+    saveLocalGame(session);
 
     return {
       success: true,
@@ -235,7 +260,7 @@ export const gameApi = {
     }
 
     // Static Netlify Fallback
-    const session = localGames.get(gameId);
+    const session = getLocalGame(gameId);
     if (!session) {
       return {
         success: false,
@@ -299,6 +324,7 @@ export const gameApi = {
     }
 
     const nextPlayer = session.players[session.current_player];
+    saveLocalGame(session);
 
     return {
       success: true,
@@ -332,7 +358,7 @@ export const gameApi = {
       return serverAttempt.data;
     }
 
-    const session = localGames.get(gameId);
+    const session = getLocalGame(gameId);
     if (session) {
       session.players.forEach((p) => {
         p.position = 0;
@@ -342,6 +368,7 @@ export const gameApi = {
       session.winner = null;
       session.last_dice = null;
       session.move_history = [];
+      saveLocalGame(session);
     }
 
     return {
