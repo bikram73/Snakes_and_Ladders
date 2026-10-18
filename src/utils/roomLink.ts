@@ -16,15 +16,32 @@ export function buildShareUrl(roomCode: string): string {
   if (!code) return '';
   if (typeof window === 'undefined') return `?room=${code}#room=${code}`;
 
-  const origin = window.location.origin;
+  const origin = window.location.origin || '';
   // Clean pathname: remove trailing index.html and any trailing slashes
-  let cleanPath = window.location.pathname.replace(/\/index\.html$/i, '').replace(/\/+$/, '');
+  let cleanPath = (window.location.pathname || '').replace(/\/index\.html$/i, '').replace(/\/+$/, '');
   if (cleanPath === '/') {
     cleanPath = '';
   }
 
+  // Double-barrel format: includes ?room=CODE (standard search) and #room=CODE (hash fragment)
+  // Ensures compatibility across Netlify, Vercel, social crawlers, and static single-page-apps
   return `${origin}${cleanPath}/?room=${encodeURIComponent(code)}#room=${encodeURIComponent(code)}`;
 }
+
+/**
+ * Builds rich share message text containing both the 5-letter code and the direct clickable link.
+ */
+export function buildRoomShareMessage(roomCode: string, hostName?: string): string {
+  const code = (roomCode || '').trim().toUpperCase();
+  const link = buildShareUrl(code);
+  const host = (hostName || '').trim();
+  const intro = host ? `👑 ${host} invites you to play Snakes & Ladders: Shark Arena!` : '🦈 Join my Snakes & Ladders: Shark Arena match!';
+  return `${intro}\n\n🔑 Room Code: ${code}\n🔗 Instant Join Link: ${link}`;
+}
+
+const RESERVED_URL_WORDS = new Set([
+  'PLAY', 'GAME', 'GAMES', 'HOME', 'ROOM', 'JOIN', 'INDEX', 'HTML', 'DIST', 'APP', 'BUILD', 'ARENA', 'STATIC'
+]);
 
 /**
  * Robust extractor for room codes from:
@@ -39,40 +56,72 @@ export function extractRoomCode(raw: string): string {
   const trimmed = raw.trim();
 
   // 1. Look for ?room=CODE, ?join=CODE, &code=CODE in query strings or hashes
-  const paramMatch = trimmed.match(/[?&#](?:room|join|code)=([a-zA-Z0-9]+)/i);
+  const paramMatch = trimmed.match(/[?&#](?:room|join|code)=([a-zA-Z0-9]{4,6})/i);
   if (paramMatch && paramMatch[1]) {
-    return paramMatch[1].slice(0, 6).toUpperCase();
+    const candidate = paramMatch[1].toUpperCase();
+    if (!RESERVED_URL_WORDS.has(candidate)) {
+      return candidate;
+    }
   }
 
-  // 2. Look for hash routing like #room=CODE or #7KF9A
+  // 2. Look for hash routing like #room=CODE, #join=CODE, or #7KF9A
   const hashMatch = trimmed.match(/#(?:room=|join=|code=)?([a-zA-Z0-9]{4,6})(?:[/?#]|$)/i);
   if (hashMatch && hashMatch[1]) {
-    return hashMatch[1].toUpperCase();
+    const candidate = hashMatch[1].toUpperCase();
+    if (!RESERVED_URL_WORDS.has(candidate)) {
+      return candidate;
+    }
   }
 
   // 3. Look for /room/CODE or /join/CODE in URL paths
-  const pathMatch = trimmed.match(/(?:\/room\/|\/join\/)([a-zA-Z0-9]+)/i);
+  const pathMatch = trimmed.match(/(?:\/room\/|\/join\/)([a-zA-Z0-9]{4,6})/i);
   if (pathMatch && pathMatch[1]) {
-    return pathMatch[1].slice(0, 6).toUpperCase();
+    const candidate = pathMatch[1].toUpperCase();
+    if (!RESERVED_URL_WORDS.has(candidate)) {
+      return candidate;
+    }
   }
 
   // 4. Look for "code: CODE" or "room: CODE" or "code is CODE" in pasted messages
   const textMatch = trimmed.match(/(?:code|room)(?:\s+is|\s*:|\s*=\s*|\s+)\s*([a-zA-Z0-9]{4,6})/i);
   if (textMatch && textMatch[1]) {
-    return textMatch[1].toUpperCase();
+    const candidate = textMatch[1].toUpperCase();
+    if (!RESERVED_URL_WORDS.has(candidate)) {
+      return candidate;
+    }
   }
 
   // 5. If it looks like a URL (starts with http, https, www, or contains ://):
   if (/^(?:https?:\/\/|www\.)/i.test(trimmed) || trimmed.includes('://')) {
-    const endMatch = trimmed.match(/\/([a-zA-Z0-9]{4,6})(?:[/?#]|$)/);
-    if (endMatch && endMatch[1]) {
-      return endMatch[1].toUpperCase();
+    try {
+      const parsedUrl = new URL(trimmed.startsWith('www.') ? `https://${trimmed}` : trimmed);
+      const urlCode = parsedUrl.searchParams.get('room') || parsedUrl.searchParams.get('join') || parsedUrl.searchParams.get('code');
+      if (urlCode && urlCode.length >= 4 && urlCode.length <= 6) {
+        return urlCode.toUpperCase();
+      }
+      if (parsedUrl.hash) {
+        const fromHash = parsedUrl.hash.replace(/^#(?:\w+=)?/, '');
+        if (fromHash && fromHash.length >= 4 && fromHash.length <= 6 && !RESERVED_URL_WORDS.has(fromHash.toUpperCase())) {
+          return fromHash.toUpperCase();
+        }
+      }
+      const segments = parsedUrl.pathname.split('/').filter(Boolean);
+      const lastSeg = segments[segments.length - 1];
+      if (lastSeg && lastSeg.length >= 4 && lastSeg.length <= 6 && !RESERVED_URL_WORDS.has(lastSeg.toUpperCase())) {
+        return lastSeg.toUpperCase();
+      }
+    } catch (e) {
+      // URL constructor error fallback
     }
     return '';
   }
 
   // 6. Direct room code typed or pasted: strip spaces/symbols, limit to 6 chars
-  return trimmed.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase();
+  const cleaned = trimmed.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase();
+  if (cleaned.length >= 4 && !RESERVED_URL_WORDS.has(cleaned)) {
+    return cleaned;
+  }
+  return cleaned;
 }
 
 /**

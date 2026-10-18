@@ -350,43 +350,46 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
           </div>
         )}
-        {/* Prominent Invite Link Banner when opening via shared link (?room=CODE) */}
+        {/* Prominent Invite Link Banner when opening via shared link (?room=CODE, #room=CODE) */}
         {hasInviteFromUrl && joinRoomCode && (
           <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-amber-400/15 to-yellow-500/20 border-2 border-amber-400 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-amber-500 text-slate-950 font-black flex items-center justify-center text-xl shadow-lg shrink-0">
-                🎮
+                👑
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-black uppercase text-amber-400 tracking-wider">
-                    Online Room Invite
+                    👑 Host's Online Room Invite
                   </span>
                   <span className="px-2.5 py-0.5 rounded-lg bg-amber-400/20 text-amber-300 font-mono font-black text-sm tracking-widest border border-amber-400/40">
                     {joinRoomCode}
                   </span>
                 </div>
                 <p className="text-xs text-slate-200 mt-1">
-                  You've been invited by the host! Enter your name and join the arena.
+                  You've been invited by the host! Confirm your Guest Name and join the arena.
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <input
-                type="text"
-                value={joinPlayerName}
-                onChange={(e) => setJoinPlayerName(e.target.value)}
-                maxLength={14}
-                placeholder="Your Name"
-                className="flex-1 sm:w-36 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-amber-400"
-              />
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-300 mb-1 sm:hidden">🎮 Your Guest Name:</span>
+                <input
+                  type="text"
+                  value={joinPlayerName}
+                  onChange={(e) => setJoinPlayerName(e.target.value)}
+                  maxLength={14}
+                  placeholder="Your Guest Name"
+                  className="flex-1 sm:w-44 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-amber-400"
+                />
+              </div>
               <button
                 onClick={handleJoinRemoteRoom}
                 disabled={isCreatingRoom}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 cursor-pointer whitespace-nowrap active:scale-95 disabled:opacity-50 transition-all border-b-2 border-amber-600"
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap active:scale-95 disabled:opacity-50 transition-all border-b-2 border-amber-600"
               >
-                <span>{isCreatingRoom ? 'Joining...' : '🚀 Join Room Now'}</span>
+                <span>{isCreatingRoom ? 'Connecting to Room...' : '🚀 Join as Guest'}</span>
               </button>
             </div>
           </div>
@@ -782,9 +785,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col gap-1.5">
-                    <label className="text-[11px] font-bold text-amber-400">
-                      👑 Your Name (Room Host)
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-amber-400">
+                        👑 Host Player Name
+                      </label>
+                      <span className="text-[10px] text-slate-500">Visible to all guests</span>
+                    </div>
                     <input
                       type="text"
                       value={hostPlayerName}
@@ -853,21 +859,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       </div>
                     ) : (
                       <span className="text-[10px] text-slate-500 pt-0.5">
-                        Paste the full invite link or type the 5-letter room code from your host.
+                        Paste the full Netlify invite link or enter the 5-letter code.
                       </span>
                     )}
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col gap-1.5">
-                    <label className="text-[11px] font-bold text-slate-300">
-                      👤 Your Contender Name
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-cyan-400">
+                        🎮 Guest Player Name
+                      </label>
+                      <span className="text-[10px] text-slate-500">Visible to host</span>
+                    </div>
                     <input
                       type="text"
                       value={joinPlayerName}
                       onChange={(e) => setJoinPlayerName(e.target.value)}
                       maxLength={14}
-                      placeholder="e.g. Player Chris"
+                      placeholder="e.g. Guest Chris"
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-amber-400"
                     />
                   </div>

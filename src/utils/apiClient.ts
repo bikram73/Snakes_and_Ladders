@@ -95,13 +95,18 @@ async function relayPublishRoom(room: RoomState): Promise<void> {
   syncLocalRoom(room);
   try {
     const topic = `${CLOUD_RELAY_TOPIC_PREFIX}${room.code.toUpperCase()}`;
+    // Limit move_history to latest 10 moves to keep payload under 2KB, well within ntfy limits
+    const sanitized: RoomState = {
+      ...room,
+      move_history: (room.move_history || []).slice(-10),
+    };
     await fetch(`https://ntfy.sh/${topic}`, {
       method: 'POST',
       headers: {
         Title: 'room_sync',
         Priority: 'urgent',
       },
-      body: JSON.stringify(room),
+      body: JSON.stringify(sanitized),
     });
   } catch (e) {
     // Relay publish non-blocking fallback
@@ -121,7 +126,7 @@ async function relayFetchRoom(code: string): Promise<RoomState | null> {
   try {
     const topic = `${CLOUD_RELAY_TOPIC_PREFIX}${cleanCode}`;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2600);
+    const timeoutId = setTimeout(() => controller.abort(), 4500);
     const res = await fetch(`https://ntfy.sh/${topic}/json?poll=1`, {
       signal: controller.signal,
     });
@@ -503,7 +508,12 @@ export const gameApi = {
     }
 
     // Static Netlify Fallback: fetch room from cloud relay / local cache
-    const room = await relayFetchRoom(code);
+    let room = await relayFetchRoom(code);
+    if (!room) {
+      // Retry after 500ms in case the host just published the room
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      room = await relayFetchRoom(code);
+    }
 
     if (!room) {
       return {
@@ -862,5 +872,21 @@ export const gameApi = {
     await relayPublishRoom(room);
 
     return { success: true, room };
+  },
+
+  // 11. Heartbeat to keep room active in cloud relay (Netlify static deployment)
+  async publishHeartbeat(roomCode: string): Promise<void> {
+    const code = roomCode.trim().toUpperCase();
+    let r = localRooms.get(code);
+    if (!r && typeof localStorage !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(`snakes_room_${code}`);
+        if (stored) r = JSON.parse(stored);
+      } catch (e) {}
+    }
+    if (r) {
+      r.last_updated = Date.now();
+      await relayPublishRoom(r);
+    }
   },
 };

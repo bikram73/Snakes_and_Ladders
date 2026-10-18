@@ -843,6 +843,13 @@ export default function App() {
               <span className="text-[9px] sm:text-[10px] text-amber-400 font-bold uppercase tracking-wider block truncate max-w-[140px] xs:max-w-[180px] sm:max-w-none">
                 {activeModeTitle}
               </span>
+              {isRemoteMatch && players.length > 0 && (
+                <div className="flex items-center gap-1.5 text-[10px] font-black bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-md shadow-sm">
+                  <span className="text-amber-400">👑 {players[0]?.name || 'Host'}</span>
+                  <span className="text-slate-500 font-bold">vs</span>
+                  <span className="text-cyan-400">🎮 {players.slice(1).map((g) => g.name).join(', ') || 'Guest'}</span>
+                </div>
+              )}
               {isRemoteMatch && (
                 <button
                   onClick={handleCopyInviteLink}
@@ -1075,8 +1082,19 @@ export default function App() {
                       <div className="flex items-center gap-2 sm:gap-2.5">
                         <span className="text-lg sm:text-xl">{p.avatar}</span>
                         <div>
-                          <h4 className={`text-xs sm:text-sm font-black flex items-center gap-1.5 ${isTurn ? 'text-amber-300' : 'text-white'}`}>
-                            <span className="truncate max-w-[100px] sm:max-w-[130px]">{p.name}</span>
+                          <h4 className={`text-xs sm:text-sm font-black flex items-center gap-1.5 flex-wrap ${isTurn ? 'text-amber-300' : 'text-white'}`}>
+                            <span className="truncate max-w-[90px] sm:max-w-[120px]">{p.name}</span>
+                            {isRemoteMatch && (
+                              <span
+                                className={`text-[8px] font-black uppercase px-1.5 py-0.2 rounded ${
+                                  p.id === 0
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                    : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                                }`}
+                              >
+                                {p.id === 0 ? '👑 HOST' : `🎮 GUEST ${p.id}`}
+                              </span>
+                            )}
                             {isMe && (
                               <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-sky-500 text-slate-950 font-black">
                                 YOU
@@ -1093,7 +1111,15 @@ export default function App() {
                         {isTurn ? (
                           <div className="flex flex-col items-end">
                             <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 shadow animate-pulse">
-                              {p.is_computer ? '🤖 THINKING' : isMe ? 'YOUR TURN' : 'ROLLING'}
+                              {p.is_computer
+                                ? '🤖 THINKING'
+                                : isMe
+                                ? 'YOUR TURN'
+                                : isRemoteMatch
+                                ? p.id === 0
+                                  ? '👑 HOST TURN'
+                                  : '🎮 GUEST TURN'
+                                : 'ROLLING'}
                             </span>
                             <span className="text-[9px] text-slate-400 mt-0.5">
                               Roll: {p.id === activePlayer.id ? lastDice : '-'}

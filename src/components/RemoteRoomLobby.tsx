@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { sound } from '../utils/audio';
 import { gameApi } from '../utils/apiClient';
-import { buildShareUrl, syncBrowserUrlWithRoom, copyToClipboard } from '../utils/roomLink';
+import { buildShareUrl, syncBrowserUrlWithRoom, copyToClipboard, buildRoomShareMessage } from '../utils/roomLink';
 import { RoomState } from '../types/game';
 import {
   Users,
@@ -80,6 +80,15 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
     };
   }, [currentCode, playerId, onStartMatch]);
 
+  // Periodic heartbeat for host to guarantee room presence on Netlify cloud relay
+  useEffect(() => {
+    if (!isHost) return;
+    const heartbeatTimer = setInterval(() => {
+      gameApi.publishHeartbeat(currentCode);
+    }, 3200);
+    return () => clearInterval(heartbeatTimer);
+  }, [isHost, currentCode]);
+
   // Keep browser address bar in sync with both query param and hash for Netlify reliability
   useEffect(() => {
     syncBrowserUrlWithRoom(currentCode);
@@ -116,11 +125,15 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
 
   const handleNativeShare = async () => {
     sound.playClick();
+    const hostPlayer = room?.players.find((p) => p.id === 0);
+    const hostName = hostPlayer?.name || 'Host';
+    const message = buildRoomShareMessage(currentCode, hostName);
+
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: 'Join my Snake & Ladder match!',
-          text: `Join my Snake & Ladder online game using Room Code: ${currentCode}`,
+          title: 'Snakes & Ladders Online Arena',
+          text: message,
           url: shareUrl,
         });
         return;
@@ -356,11 +369,41 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
           </div>
         )}
 
+        {/* Matchup Overview (Host & Guest names) */}
+        {(() => {
+          const hostPlayer = room?.players[0];
+          const guestPlayers = (room?.players || []).slice(1);
+          return (
+            <div className="bg-slate-950/80 border border-slate-800/90 rounded-2xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-black text-[10px] uppercase border border-amber-500/30">
+                  👑 Host
+                </span>
+                <span className="font-black text-white">{hostPlayer?.name || 'Waiting...'}</span>
+                {hostPlayer?.id === playerId && (
+                  <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-sky-500 text-slate-950 font-black">YOU</span>
+                )}
+              </div>
+              <div className="text-slate-500 font-bold hidden sm:block">VS</div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 font-black text-[10px] uppercase border border-cyan-500/30">
+                  🎮 Guest{maxPlayers > 2 ? 's' : ''}
+                </span>
+                <span className="font-black text-slate-200">
+                  {guestPlayers.length > 0
+                    ? guestPlayers.map((g) => `${g.name}${g.id === playerId ? ' (You)' : ''}`).join(', ')
+                    : 'Waiting for guest to join...'}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Contenders Slot List */}
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center justify-between text-xs font-bold text-slate-400 px-1">
             <span className="flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 text-amber-400" /> Contenders in Lobby
+              <Users className="w-3.5 h-3.5 text-amber-400" /> Contenders in Lobby (Host & Guests)
             </span>
             <span className="font-mono text-amber-400 font-bold bg-slate-950 px-2.5 py-0.5 rounded-full border border-slate-800 text-[11px]">
               {playerCount} / {maxPlayers} Ready
@@ -389,17 +432,37 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
                       {joined ? joined.avatar : '⏳'}
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <span className="text-xs sm:text-sm font-black truncate max-w-[130px] text-white">
-                        {joined ? joined.name : `Slot ${idx + 1}`}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs sm:text-sm font-black truncate max-w-[120px] text-white">
+                          {joined ? joined.name : isSlotHost ? 'Host' : `Guest ${idx}`}
+                        </span>
+                        {joined && (
+                          <span
+                            className={`text-[8px] font-black uppercase px-1.5 py-0.2 rounded ${
+                              isSlotHost
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                            }`}
+                          >
+                            {isSlotHost ? '👑 HOST' : `🎮 GUEST ${idx}`}
+                          </span>
+                        )}
+                        {joined && isCurrentPlayer && (
+                          <span className="text-[8px] uppercase px-1 py-0.2 rounded bg-sky-500 text-slate-950 font-black">
+                            YOU
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] font-bold text-slate-400 truncate">
                         {joined
                           ? isSlotHost
-                            ? '👑 Room Host'
+                            ? isCurrentPlayer
+                              ? '👑 Room Host (You)'
+                              : '👑 Room Host'
                             : isCurrentPlayer
-                            ? '👤 You'
-                            : 'Contender'
-                          : 'Waiting to join...'}
+                            ? `🎮 Guest Contender ${idx} (You)`
+                            : `🎮 Guest Contender ${idx}`
+                          : `Waiting for Guest ${idx} to join...`}
                       </span>
                     </div>
                   </div>
@@ -413,7 +476,7 @@ export const RemoteRoomLobby: React.FC<RemoteRoomLobbyProps> = ({
                     ) : (
                       <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-900 text-slate-500 border border-slate-800">
                         <Loader2 className="w-2.5 h-2.5 animate-spin text-slate-600" />
-                        OPEN
+                        WAITING
                       </span>
                     )}
                   </div>
