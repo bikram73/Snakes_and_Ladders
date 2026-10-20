@@ -1220,13 +1220,21 @@ export default function App() {
           </div>
 
           {/* Game Status Log Box */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-3.5 shadow-lg flex flex-col gap-1">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-              GAME STATUS
-            </span>
-            <p className="text-xs sm:text-sm font-bold text-amber-300 leading-snug">
-              {statusMessage}
-            </p>
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-xl flex flex-col gap-2">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" /> Game Status
+              </span>
+              <span className="text-[10px] font-mono text-amber-400/80 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                Live Feed
+              </span>
+            </div>
+            <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 shadow-inner flex items-center gap-2.5">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" />
+              <p className="text-xs sm:text-sm font-bold text-amber-300 leading-snug flex-1">
+                {statusMessage}
+              </p>
+            </div>
           </div>
         </div>
       </main>
