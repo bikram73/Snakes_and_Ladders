@@ -221,10 +221,10 @@ export const AnimatedBoardHero: React.FC<AnimatedBoardHeroProps> = ({
       </div>
 
       {/* Main Interactive Showcase Body: Mini Board on Left + Live 3D Dice Ticker on Right */}
-      <div className="flex flex-col md:flex-row items-center justify-center gap-6 lg:gap-10 relative z-10 w-full">
+      <div className="flex flex-col md:flex-row items-center justify-center gap-5 relative z-10">
         {/* The Animated 10x10 Board */}
         <div
-          className={`relative w-full max-w-[340px] sm:max-w-[390px] lg:max-w-[460px] xl:max-w-[520px] 2xl:max-w-[560px] aspect-square rounded-2xl sm:rounded-3xl overflow-hidden border-2 p-1.5 shadow-2xl shrink-0 transition-all duration-300 ${currentTheme.boardOuterBorder} ${currentTheme.boardOuterBg}`}
+          className={`relative w-full max-w-[340px] sm:max-w-[380px] aspect-square rounded-2xl overflow-hidden border-2 p-1.5 shadow-2xl shrink-0 transition-all duration-300 ${currentTheme.boardOuterBorder} ${currentTheme.boardOuterBg}`}
         >
           {/* 10x10 Grid Cells */}
           <div
@@ -305,7 +305,7 @@ export const AnimatedBoardHero: React.FC<AnimatedBoardHeroProps> = ({
         </div>
 
         {/* Live Simulation Sidebar Dashboard & 3D Rolling Dice */}
-        <div className="flex flex-col gap-3.5 w-full max-w-xs sm:max-w-sm lg:max-w-md">
+        <div className="flex flex-col gap-3.5 w-full max-w-xs">
           {/* Active Player Ticker Card */}
           <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between shadow-lg">
             <div className="flex items-center gap-2.5">
