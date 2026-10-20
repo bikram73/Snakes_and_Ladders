@@ -35,7 +35,7 @@ export function buildRoomShareMessage(roomCode: string, hostName?: string): stri
   const code = (roomCode || '').trim().toUpperCase();
   const link = buildShareUrl(code);
   const host = (hostName || '').trim();
-  const intro = host ? `👑 ${host} invites you to play Snakes & Ladders: Shark Arena!` : '🦈 Join my Snakes & Ladders: Shark Arena match!';
+  const intro = host ? `👑 ${host} invites you to play Snakes & Ladders: Shark Arena!` : 'Join my Snakes & Ladders: Shark Arena match!';
   return `${intro}\n\n🔑 Room Code: ${code}\n🔗 Instant Join Link: ${link}`;
 }
 
