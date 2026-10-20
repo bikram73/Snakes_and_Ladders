@@ -122,7 +122,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   }, [size]);
 
   return (
-    <div className="flex flex-col items-center w-full max-w-[560px] mx-auto select-none">
+    <div className="flex flex-col items-center w-full max-w-[560px] md:max-w-[620px] lg:max-w-[720px] xl:max-w-[800px] 2xl:max-w-[860px] mx-auto select-none">
       {/* 🦈 Quick Shark Board Theme & Layout Selector Bar */}
       <div className="w-full mb-2 bg-slate-900/90 border border-slate-800 rounded-xl px-2.5 sm:px-3 py-1.5 flex items-center justify-between gap-2 shadow-md">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 max-w-[75%] sm:max-w-[80%]">
@@ -204,7 +204,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
       {/* Main 10x10 Board Arena */}
       <div
-        className={`relative w-full aspect-square rounded-2xl sm:rounded-3xl overflow-hidden border-2 sm:border-4 transition-all duration-300 p-1.5 sm:p-2.5 ${currentTheme.boardOuterBorder} ${currentTheme.boardOuterBg}`}
+        className={`relative w-full aspect-square rounded-2xl sm:rounded-3xl overflow-hidden border-2 sm:border-4 transition-all duration-300 p-1.5 sm:p-2.5 lg:p-3 xl:p-3.5 ${currentTheme.boardOuterBorder} ${currentTheme.boardOuterBg}`}
         onMouseLeave={() => setHoveredTile(null)}
       >
         {/* Subtle Water Caustic Overlay */}
@@ -212,7 +212,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
         {/* 10x10 Grid */}
         <div
-          className={`grid w-full h-full gap-0.5 sm:gap-1 rounded-lg sm:rounded-xl overflow-hidden relative ${currentTheme.boardInnerGridBg}`}
+          className={`grid w-full h-full gap-0.5 sm:gap-1 lg:gap-1.5 rounded-lg sm:rounded-xl overflow-hidden relative ${currentTheme.boardInnerGridBg}`}
           style={{
             gridTemplateColumns: 'repeat(10, minmax(0, 1fr))',
             gridTemplateRows: 'repeat(10, minmax(0, 1fr))',
@@ -257,7 +257,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                   sound.playClick();
                   setHoveredTile((prev) => (prev === tileNum ? null : tileNum));
                 }}
-                className={`relative flex flex-col justify-between p-0.5 sm:p-1 rounded-[3px] sm:rounded-sm border transition-all duration-150 cursor-pointer ${
+                className={`relative flex flex-col justify-between p-0.5 sm:p-1 lg:p-1.5 rounded-[3px] sm:rounded-sm border transition-all duration-150 cursor-pointer ${
                   currentTheme.tileBorder
                 } ${cellBg} ${
                   isHovered
@@ -280,7 +280,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 {/* Tile Number Header */}
                 <div className="flex items-center justify-between w-full leading-none">
                   <span
-                    className={`text-[8px] xs:text-[9px] sm:text-xs font-black tracking-tight ${
+                    className={`text-[8px] xs:text-[9px] sm:text-xs lg:text-sm xl:text-base font-black tracking-tight ${
                       isHovered
                         ? 'text-white drop-shadow font-black scale-105'
                         : isFinish
@@ -294,17 +294,17 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                   </span>
 
                   {isFinish && (
-                    <Trophy className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-slate-950 drop-shadow animate-bounce" />
+                    <Trophy className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 lg:w-4 lg:h-4 text-slate-950 drop-shadow animate-bounce" />
                   )}
                   {isStart && (
-                    <span className="text-[6px] sm:text-[8px] font-black uppercase text-white drop-shadow">
+                    <span className="text-[6px] sm:text-[8px] lg:text-[10px] font-black uppercase text-white drop-shadow">
                       START
                     </span>
                   )}
                 </div>
 
                 {/* Shark / Ladder Badge Indicators */}
-                <div className="flex items-center justify-end gap-0.5 text-[6px] sm:text-[8px] opacity-90 leading-none">
+                <div className="flex items-center justify-end gap-0.5 text-[6px] sm:text-[8px] lg:text-[10px] xl:text-[11px] opacity-90 leading-none">
                   {isSharkHead && (
                     <span
                       className="font-black drop-shadow-sm flex items-center gap-0.5 text-rose-400"
@@ -324,12 +324,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                     </span>
                   )}
                   {!isSharkHead && isSharkTail && (
-                    <span className="font-bold text-rose-300 opacity-60 text-[6px] sm:text-[7px]" title="Shark drop zone">
+                    <span className="font-bold text-rose-300 opacity-60 text-[6px] sm:text-[7px] lg:text-[8px]" title="Shark drop zone">
                       ▼
                     </span>
                   )}
                   {!isLadderBottom && isLadderTop && (
-                    <span className="font-bold text-emerald-300 opacity-60 text-[6px] sm:text-[7px]" title="Ladder summit">
+                    <span className="font-bold text-emerald-300 opacity-60 text-[6px] sm:text-[7px] lg:text-[8px]" title="Ladder summit">
                       ▲
                     </span>
                   )}
@@ -349,7 +349,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         />
 
         {/* 🔴 Clustered Animated Player Tokens */}
-        <div className="absolute inset-0 pointer-events-none p-1.5 sm:p-2.5">
+        <div className="absolute inset-0 pointer-events-none p-1.5 sm:p-2.5 lg:p-3 xl:p-3.5">
           {Array.from(playersOnBoard.entries()).map(([tileNum, tilePlayers]) => {
             const coords = getTileCoordinates(tileNum, size, 100);
 
@@ -363,7 +363,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                   zIndex: 30,
                 }}
               >
-                <div className="flex items-center justify-center -space-x-1 sm:-space-x-1.5">
+                <div className="flex items-center justify-center -space-x-1 sm:-space-x-1.5 lg:-space-x-2">
                   {tilePlayers.map((p, idx) => {
                     const isTurn = p.id === currentPlayerId;
                     const isStepping = steppingPlayerId === p.id;
@@ -371,7 +371,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                     return (
                       <div
                         key={p.id}
-                        className={`w-5 h-5 xs:w-6 xs:h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs shadow-lg border-2 border-white font-black transition-all ${
+                        className={`w-5 h-5 xs:w-6 xs:h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 rounded-full flex items-center justify-center text-[10px] sm:text-xs lg:text-sm shadow-lg border-2 border-white font-black transition-all ${
                           p.color === 'red'
                             ? 'bg-rose-600 text-white'
                             : p.color === 'blue'

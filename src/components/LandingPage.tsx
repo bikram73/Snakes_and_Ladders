@@ -247,9 +247,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950 pb-10">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950 pb-10 w-full overflow-x-hidden">
       {/* Top Navbar */}
-      <header className="w-full max-w-4xl mx-auto px-4 py-3.5 flex items-center justify-between border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30">
+      <header className="w-full max-w-7xl 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-3.5 flex items-center justify-between border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center text-xl shadow-lg shadow-amber-500/20 border border-amber-300">
             🐍
@@ -305,7 +305,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </header>
 
       {/* Main Landing Content Container */}
-      <main className="w-full max-w-3xl mx-auto px-4 py-6 flex flex-col gap-6">
+      <main className="w-full max-w-7xl 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-6 lg:py-8 flex flex-col gap-6 lg:gap-8">
         {/* Saved Match in Progress Banner */}
         {savedGameAvailable && savedGameDetails && (
           <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-sky-950/80 via-slate-900 to-indigo-950/80 border-2 border-sky-400/80 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
@@ -412,7 +412,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             Step 1: Choose Game Mode
           </span>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 lg:gap-5">
             {/* Mode 1: Player vs Computer */}
             <button
               onClick={() => {
@@ -559,7 +559,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
 
               {/* Contenders Name Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
                 <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col gap-1.5">
                   <label className="text-[11px] font-bold text-amber-400 flex items-center gap-1.5">
                     <span>🔴</span> You (Player 1)
@@ -671,7 +671,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
 
               {/* Contenders Name Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
                 {Array.from({ length: multiplayerPlayerCount }).map((_, idx) => {
                   const p = mpPlayers[idx];
                   return (
@@ -908,7 +908,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 Custom predator graphics, ocean textures, and board colors.
               </p>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
                 {SHARK_THEMES_LIST.map((th) => {
                   const isSelected = (rules.sharkTheme || 'great-white') === th.id;
                   return (
@@ -953,7 +953,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
                 {SHARK_LAYOUT_PRESETS_LIST.map((layout) => {
                   const isSelected = (rules.sharkLayout || 'reef-patrol') === layout.id;
                   return (
