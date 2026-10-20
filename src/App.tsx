@@ -830,9 +830,9 @@ export default function App() {
 
   // Active Game Board Arena Screen
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950 w-full overflow-x-hidden">
       {/* Top Game Navigation Header */}
-      <header className="w-full max-w-6xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md sticky top-0 z-30">
+      <header className="w-full max-w-7xl 2xl:max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8 xl:px-12 py-2.5 sm:py-3.5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md sticky top-0 z-30">
         {/* Brand & Mode Tag */}
         <div className="flex items-center gap-2.5 sm:gap-3">
           <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center text-lg sm:text-xl shadow-lg shadow-amber-500/20 border border-amber-300 shrink-0">
@@ -1061,10 +1061,10 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Game Layout (Responsive across Mobile, Tablet, and Desktop) */}
-      <main className="w-full max-w-6xl mx-auto px-2 xs:px-3 sm:px-4 py-2 sm:py-4 flex-1 flex flex-col md:flex-row items-center md:items-start justify-center gap-4 md:gap-6 lg:gap-8 pb-24 md:pb-6">
+      {/* Main Game Layout (Responsive across Mobile, Tablet, Laptop, and Desktop) */}
+      <main className="w-full max-w-7xl 2xl:max-w-[1600px] mx-auto px-2 xs:px-3 sm:px-6 lg:px-8 xl:px-12 py-2 sm:py-5 flex-1 flex flex-col md:flex-row items-center md:items-start justify-center gap-4 md:gap-6 lg:gap-8 xl:gap-12 pb-24 md:pb-6">
         {/* Left Column: Game Board Arena */}
-        <div className="w-full md:w-7/12 lg:w-7/12 flex flex-col items-center justify-center max-w-[min(100%,560px)]">
+        <div className="w-full md:w-7/12 lg:w-[60%] xl:w-[62%] 2xl:w-[64%] flex flex-col items-center justify-center max-w-full md:max-w-[620px] lg:max-w-[720px] xl:max-w-[800px] 2xl:max-w-[860px]">
           {/* Active Action / Notification Banner */}
           <div className="h-7 sm:h-8 mb-1.5 sm:mb-2 flex items-center justify-center w-full">
             {activeEventBanner ? (
@@ -1108,12 +1108,12 @@ export default function App() {
         </div>
 
         {/* Right Column: Player Dashboard & Dice Roller */}
-        <div className="w-full md:w-5/12 lg:w-5/12 flex flex-col gap-3 sm:gap-4 max-w-md">
+        <div className="w-full md:w-5/12 lg:w-[40%] xl:w-[38%] 2xl:w-[36%] flex flex-col gap-3.5 sm:gap-4 lg:gap-5 max-w-md md:max-w-none lg:max-w-[480px] xl:max-w-[540px] 2xl:max-w-[580px]">
           {/* Player Standings & Active Turn Glow */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-xl flex flex-col gap-2.5 sm:gap-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Trophy className="w-3.5 h-3.5 text-amber-400" /> Contenders
+          <div className="bg-slate-900/95 border border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col gap-3">
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-800/80">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <Trophy className="w-4 h-4 text-amber-400" /> Contenders
               </span>
               <div className="flex items-center gap-2">
                 {isRemoteMatch && myPlayerId !== null && (
@@ -1128,7 +1128,7 @@ export default function App() {
             </div>
 
             {/* List of Players */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2 gap-2.5">
               {players.map((p) => {
                 const isTurn = p.id === currentPlayerId;
                 const isMe = isRemoteMatch && p.id === myPlayerId;
@@ -1136,23 +1136,23 @@ export default function App() {
                 return (
                   <div
                     key={p.id}
-                    className={`p-2.5 sm:p-3 rounded-xl border transition-all ${
+                    className={`p-3 rounded-xl border transition-all ${
                       isTurn
-                        ? 'bg-slate-800/90 border-amber-500 ring-2 ring-amber-400/40 shadow-md'
+                        ? 'bg-slate-800/95 border-amber-500/80 ring-2 ring-amber-400/40 shadow-md'
                         : isMe
-                        ? 'bg-slate-900/90 border-sky-500/40 text-slate-200'
-                        : 'bg-slate-950/50 border-slate-800 text-slate-300'
+                        ? 'bg-slate-950/80 border-sky-500/40 text-slate-200'
+                        : 'bg-slate-950/50 border-slate-800/80 text-slate-300'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 sm:gap-2.5">
-                        <span className="text-lg sm:text-xl">{p.avatar}</span>
-                        <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-xl shrink-0">{p.avatar}</span>
+                        <div className="min-w-0">
                           <h4 className={`text-xs sm:text-sm font-black flex items-center gap-1.5 flex-wrap ${isTurn ? 'text-amber-300' : 'text-white'}`}>
                             <span className="truncate max-w-[90px] sm:max-w-[120px]">{p.name}</span>
                             {isRemoteMatch && (
                               <span
-                                className={`text-[8px] font-black uppercase px-1.5 py-0.2 rounded ${
+                                className={`text-[8px] font-black uppercase px-1.5 py-0.2 rounded shrink-0 ${
                                   p.id === 0
                                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                                     : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
@@ -1162,7 +1162,7 @@ export default function App() {
                               </span>
                             )}
                             {isMe && (
-                              <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-sky-500 text-slate-950 font-black">
+                              <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-sky-500 text-slate-950 font-black shrink-0">
                                 YOU
                               </span>
                             )}
@@ -1173,7 +1173,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         {isTurn ? (
                           <div className="flex flex-col items-end">
                             <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 shadow animate-pulse">
@@ -1187,7 +1187,7 @@ export default function App() {
                                   : '🎮 GUEST TURN'
                                 : 'ROLLING'}
                             </span>
-                            <span className="text-[9px] text-slate-400 mt-0.5">
+                            <span className="text-[9px] text-slate-400 mt-0.5 font-mono">
                               Roll: {p.id === activePlayer.id ? lastDice : '-'}
                             </span>
                           </div>
@@ -1205,7 +1205,7 @@ export default function App() {
           </div>
 
           {/* Interactive 3D Dice Component */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-xl flex flex-col items-center justify-center">
+          <div className="bg-slate-900/95 border border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col items-center justify-center">
             <Dice3D
               value={lastDice}
               isRolling={isRolling}
@@ -1220,21 +1220,13 @@ export default function App() {
           </div>
 
           {/* Game Status Log Box */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-xl flex flex-col gap-2">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" /> Game Status
-              </span>
-              <span className="text-[10px] font-mono text-amber-400/80 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
-                Live Feed
-              </span>
-            </div>
-            <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 shadow-inner flex items-center gap-2.5">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" />
-              <p className="text-xs sm:text-sm font-bold text-amber-300 leading-snug flex-1">
-                {statusMessage}
-              </p>
-            </div>
+          <div className="bg-slate-900/95 border border-slate-800/90 rounded-2xl p-3.5 sm:p-4 shadow-lg flex flex-col gap-1.5">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+              GAME STATUS
+            </span>
+            <p className="text-xs sm:text-sm font-bold text-amber-300 leading-snug">
+              {statusMessage}
+            </p>
           </div>
         </div>
       </main>
