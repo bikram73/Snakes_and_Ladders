@@ -10,11 +10,19 @@ interface MoveLogDrawerProps {
 
 export const MoveLogDrawer: React.FC<MoveLogDrawerProps> = ({ logs, isOpen, onToggle }) => {
   return (
-    <div
-      className={`fixed top-0 right-0 h-full w-80 max-w-[85vw] bg-slate-900 border-l border-slate-800 shadow-2xl z-40 transform transition-transform duration-300 ease-in-out flex flex-col ${
-        isOpen ? 'translate-x-0' : 'translate-x-full'
-      }`}
-    >
+    <>
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-35 transition-opacity"
+          onClick={onToggle}
+          aria-hidden="true"
+        />
+      )}
+      <div
+        className={`fixed top-0 right-0 h-full w-80 max-w-[85vw] bg-slate-900 border-l border-slate-800 shadow-2xl z-40 transform transition-transform duration-300 ease-in-out flex flex-col ${
+          isOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-slate-800">
         <div className="flex items-center gap-2">
@@ -82,5 +90,6 @@ export const MoveLogDrawer: React.FC<MoveLogDrawerProps> = ({ logs, isOpen, onTo
         )}
       </div>
     </div>
-  );
+  </>
+);
 };

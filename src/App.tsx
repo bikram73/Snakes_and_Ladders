@@ -50,6 +50,8 @@ import {
   Palette,
   LogOut,
   UserMinus,
+  Menu,
+  X,
 } from 'lucide-react';
 
 const DEFAULT_RULES: GameRules = {
@@ -111,6 +113,7 @@ export default function App() {
   const [showSharkThemeModal, setShowSharkThemeModal] = useState<boolean>(false);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState<boolean>(false);
   const [showLogDrawer, setShowLogDrawer] = useState<boolean>(false);
+  const [showMobileMenu, setShowMobileMenu] = useState<boolean>(false);
   const [moveLogs, setMoveLogs] = useState<MoveLog[]>([]);
 
   // Ref tracking last move history length in remote room to animate turns
@@ -866,139 +869,202 @@ export default function App() {
 
         {/* Action Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Player Profile Chip */}
-          <button
-            onClick={() => {
-              sound.playClick();
-              setShowInitialPlayerModal(true);
-            }}
-            className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-200 hover:text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm group"
-            title="Edit player name in browser storage"
-          >
-            <span className="text-sm">{playerProfile.avatar || '🔴'}</span>
-            <span className="max-w-[70px] sm:max-w-[100px] truncate">{playerProfile.name || 'Player 1'}</span>
-            <span className="text-[10px] text-amber-400 opacity-75 group-hover:opacity-100">✏️</span>
-          </button>
-
-          {/* Online Match Exit Button */}
-          {isRemoteMatch && (
+          {/* Mobile & Tablet Action Bar (< lg screens) */}
+          <div className="flex lg:hidden items-center gap-1 sm:gap-1.5">
+            {/* Player Profile Chip (compact on mobile) */}
             <button
               onClick={() => {
                 sound.playClick();
-                setShowExitConfirmModal(true);
+                setShowInitialPlayerModal(true);
               }}
-              className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-rose-950/80 border border-rose-700/80 hover:bg-rose-900 text-rose-200 hover:text-white text-xs font-black transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
-              title="Exit Online Match"
+              className="px-2 sm:px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-200 hover:text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-sm group"
+              title="Edit player name in browser storage"
             >
-              <LogOut className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-              <span className="hidden sm:inline">Exit Match</span>
+              <span className="text-sm">{playerProfile.avatar || '🔴'}</span>
+              <span className="max-w-[55px] xs:max-w-[80px] truncate text-[11px] sm:text-xs">{playerProfile.name || 'Player 1'}</span>
+              <span className="text-[10px] text-amber-400 opacity-75 group-hover:opacity-100">✏️</span>
             </button>
-          )}
 
-          {/* Return to Main Menu / Landing Page */}
-          <button
-            onClick={() => {
-              sound.playClick();
-              if (isRemoteMatch) {
-                setShowExitConfirmModal(true);
-                return;
-              }
-              setCurrentView('landing');
-            }}
-            className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-200 hover:text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
-            title="Main Menu"
-          >
-            <Home className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="hidden sm:inline">Main Menu</span>
-          </button>
+            {/* Sound Toggle */}
+            <button
+              onClick={toggleSound}
+              className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              title={rules.soundEnabled ? 'Mute Audio' : 'Unmute Audio'}
+            >
+              {rules.soundEnabled ? (
+                <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
+              ) : (
+                <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-400" />
+              )}
+            </button>
 
-          {/* Restart Current Game */}
-          <button
-            onClick={() => {
-              sound.playClick();
-              setShowNewGameConfirm(true);
-            }}
-            className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
-            title="Restart Match"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
-          </button>
+            {/* Game Log Drawer */}
+            <button
+              onClick={() => {
+                sound.playClick();
+                setShowLogDrawer(!showLogDrawer);
+              }}
+              className="relative p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              title="Move History Log"
+            >
+              <History className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400" />
+              {moveLogs.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                  {moveLogs.length}
+                </span>
+              )}
+            </button>
 
-          {/* Rules Modal */}
-          <button
-            onClick={() => {
-              sound.playClick();
-              setShowRulesModal(true);
-            }}
-            className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
-            title="Game Rules"
-          >
-            <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
-          </button>
+            {/* Quick Actions Menu Trigger */}
+            <button
+              onClick={() => {
+                sound.playClick();
+                setShowMobileMenu(true);
+              }}
+              className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-400/50 hover:border-amber-400 text-amber-300 hover:text-amber-200 text-xs font-black transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
+              title="Match Options & Settings"
+            >
+              <Menu className="w-4 h-4 text-amber-400" />
+              <span className="text-[11px] uppercase tracking-wider">Menu</span>
+            </button>
+          </div>
 
-          {/* Shark Themes Modal */}
-          <button
-            onClick={() => {
-              sound.playClick();
-              setShowSharkThemeModal(true);
-            }}
-            className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
-            title="Shark Board Themes & Layouts"
-          >
-            <Palette className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
-            <span className="hidden md:inline text-[11px] font-black text-cyan-300">
-              {currentSharkTheme.icon} {currentSharkTheme.name.split(' ')[0]}
-            </span>
-          </button>
+          {/* Desktop Full Action Bar (>= lg screens) */}
+          <div className="hidden lg:flex items-center gap-1.5 sm:gap-2">
+            {/* Player Profile Chip */}
+            <button
+              onClick={() => {
+                sound.playClick();
+                setShowInitialPlayerModal(true);
+              }}
+              className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-200 hover:text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm group"
+              title="Edit player name in browser storage"
+            >
+              <span className="text-sm">{playerProfile.avatar || '🔴'}</span>
+              <span className="max-w-[70px] sm:max-w-[100px] truncate">{playerProfile.name || 'Player 1'}</span>
+              <span className="text-[10px] text-amber-400 opacity-75 group-hover:opacity-100">✏️</span>
+            </button>
 
-          {/* Settings Modal */}
-          <button
-            onClick={() => {
-              sound.playClick();
-              setShowSettingsModal(true);
-            }}
-            className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
-            title="Game Settings"
-          >
-            <SettingsIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-sky-400" />
-          </button>
-
-          {/* Sound Toggle */}
-          <button
-            onClick={toggleSound}
-            className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
-            title={rules.soundEnabled ? 'Mute Audio' : 'Unmute Audio'}
-          >
-            {rules.soundEnabled ? (
-              <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
-            ) : (
-              <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-400" />
+            {/* Online Match Exit Button */}
+            {isRemoteMatch && (
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setShowExitConfirmModal(true);
+                }}
+                className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-rose-950/80 border border-rose-700/80 hover:bg-rose-900 text-rose-200 hover:text-white text-xs font-black transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                title="Exit Online Match"
+              >
+                <LogOut className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                <span className="hidden sm:inline">Exit Match</span>
+              </button>
             )}
-          </button>
 
-          {/* Game Log Drawer */}
-          <button
-            onClick={() => {
-              sound.playClick();
-              setShowLogDrawer(!showLogDrawer);
-            }}
-            className="relative p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
-            title="Move History Log"
-          >
-            <History className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400" />
-            {moveLogs.length > 0 && (
-              <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">
-                {moveLogs.length}
+            {/* Return to Main Menu / Landing Page */}
+            <button
+              onClick={() => {
+                sound.playClick();
+                if (isRemoteMatch) {
+                  setShowExitConfirmModal(true);
+                  return;
+                }
+                setCurrentView('landing');
+              }}
+              className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-200 hover:text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+              title="Main Menu"
+            >
+              <Home className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="hidden sm:inline">Main Menu</span>
+            </button>
+
+            {/* Restart Current Game */}
+            <button
+              onClick={() => {
+                sound.playClick();
+                setShowNewGameConfirm(true);
+              }}
+              className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              title="Restart Match"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+            </button>
+
+            {/* Rules Modal */}
+            <button
+              onClick={() => {
+                sound.playClick();
+                setShowRulesModal(true);
+              }}
+              className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              title="Game Rules"
+            >
+              <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
+            </button>
+
+            {/* Shark Themes Modal */}
+            <button
+              onClick={() => {
+                sound.playClick();
+                setShowSharkThemeModal(true);
+              }}
+              className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+              title="Shark Board Themes & Layouts"
+            >
+              <Palette className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
+              <span className="hidden md:inline text-[11px] font-black text-cyan-300">
+                {currentSharkTheme.icon} {currentSharkTheme.name.split(' ')[0]}
               </span>
-            )}
-          </button>
+            </button>
+
+            {/* Settings Modal */}
+            <button
+              onClick={() => {
+                sound.playClick();
+                setShowSettingsModal(true);
+              }}
+              className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              title="Game Settings"
+            >
+              <SettingsIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-sky-400" />
+            </button>
+
+            {/* Sound Toggle */}
+            <button
+              onClick={toggleSound}
+              className="p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              title={rules.soundEnabled ? 'Mute Audio' : 'Unmute Audio'}
+            >
+              {rules.soundEnabled ? (
+                <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
+              ) : (
+                <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-400" />
+              )}
+            </button>
+
+            {/* Game Log Drawer */}
+            <button
+              onClick={() => {
+                sound.playClick();
+                setShowLogDrawer(!showLogDrawer);
+              }}
+              className="relative p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              title="Move History Log"
+            >
+              <History className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400" />
+              {moveLogs.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                  {moveLogs.length}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Main Game Layout (Responsive across Mobile, Tablet, and Desktop) */}
-      <main className="w-full max-w-6xl mx-auto px-2 xs:px-3 sm:px-4 py-2 sm:py-4 flex-1 flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-8">
+      <main className="w-full max-w-6xl mx-auto px-2 xs:px-3 sm:px-4 py-2 sm:py-4 flex-1 flex flex-col md:flex-row items-center md:items-start justify-center gap-4 md:gap-6 lg:gap-8 pb-24 md:pb-6">
         {/* Left Column: Game Board Arena */}
-        <div className="w-full lg:w-7/12 flex flex-col items-center justify-center max-w-[min(100%,560px)]">
+        <div className="w-full md:w-7/12 lg:w-7/12 flex flex-col items-center justify-center max-w-[min(100%,560px)]">
           {/* Active Action / Notification Banner */}
           <div className="h-7 sm:h-8 mb-1.5 sm:mb-2 flex items-center justify-center w-full">
             {activeEventBanner ? (
@@ -1042,7 +1108,7 @@ export default function App() {
         </div>
 
         {/* Right Column: Player Dashboard & Dice Roller */}
-        <div className="w-full lg:w-5/12 flex flex-col gap-3 sm:gap-4 max-w-md">
+        <div className="w-full md:w-5/12 lg:w-5/12 flex flex-col gap-3 sm:gap-4 max-w-md">
           {/* Player Standings & Active Turn Glow */}
           <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-xl flex flex-col gap-2.5 sm:gap-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
@@ -1062,7 +1128,7 @@ export default function App() {
             </div>
 
             {/* List of Players */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2">
               {players.map((p) => {
                 const isTurn = p.id === currentPlayerId;
                 const isMe = isRemoteMatch && p.id === myPlayerId;
@@ -1164,6 +1230,274 @@ export default function App() {
           </div>
         </div>
       </main>
+
+      {/* Mobile Docked Action Bar (Phone Screens < md) */}
+      <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-slate-950/95 border-t border-slate-800 backdrop-blur-xl px-3 py-2 shadow-2xl">
+        <div className="flex items-center justify-between gap-2 max-w-md mx-auto">
+          {/* Active Player Status */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="relative">
+              <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-xl shrink-0 shadow-inner">
+                {activePlayer.avatar}
+              </div>
+              {((isRemoteMatch && myPlayerId === currentPlayerId) || (!isRemoteMatch && !activePlayer.is_computer)) && !gameOver && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full animate-ping" />
+              )}
+            </div>
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black truncate text-white">
+                  {activePlayer.name}
+                </span>
+                {isRemoteMatch && (
+                  <span
+                    className={`text-[8px] font-black uppercase px-1 py-0.2 rounded ${
+                      activePlayer.id === 0
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                        : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                    }`}
+                  >
+                    {activePlayer.id === 0 ? '👑 HOST' : `🎮 GUEST`}
+                  </span>
+                )}
+                {isRemoteMatch && activePlayer.id === myPlayerId && (
+                  <span className="text-[8px] uppercase px-1 py-0.2 rounded bg-sky-500 text-slate-950 font-black">
+                    YOU
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] text-slate-400 font-bold truncate">
+                {gameOver
+                  ? '🏆 Game Finished!'
+                  : (isRemoteMatch ? myPlayerId === currentPlayerId : !activePlayer.is_computer)
+                  ? '🎯 Your Turn! Tap Roll'
+                  : activePlayer.is_computer
+                  ? '🤖 Computer rolling...'
+                  : isRemoteMatch
+                  ? `Waiting for ${activePlayer.name}...`
+                  : `Pass device to ${activePlayer.name}`}
+              </span>
+            </div>
+          </div>
+
+          {/* Dice Result Badge & Big Roll Button */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div
+              className={`w-10 h-10 rounded-xl border flex items-center justify-center font-mono font-black text-lg shadow-inner ${
+                isRolling
+                  ? 'bg-amber-500/20 border-amber-400 text-amber-300 animate-spin'
+                  : 'bg-slate-900 border-slate-700 text-white'
+              }`}
+              title={`Last roll: ${lastDice}`}
+            >
+              {isRolling ? '🎲' : lastDice}
+            </div>
+
+            <button
+              onClick={() => handleRollDice()}
+              disabled={
+                isAnimatingMove ||
+                (activePlayer.is_computer && !isRemoteMatch) ||
+                (isRemoteMatch && !isMyTurnInRemote) ||
+                gameOver ||
+                isRolling
+              }
+              className={`h-11 px-4 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-lg cursor-pointer ${
+                isAnimatingMove ||
+                (activePlayer.is_computer && !isRemoteMatch) ||
+                (isRemoteMatch && !isMyTurnInRemote) ||
+                gameOver ||
+                isRolling
+                  ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-60'
+                  : 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 shadow-amber-500/30 active:scale-95 border-b-2 border-amber-600'
+              }`}
+            >
+              <span>{isRolling ? '...' : 'ROLL'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Quick Actions Menu Modal/Sheet */}
+      {showMobileMenu && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+          <div className="w-full sm:max-w-md bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col gap-4 text-slate-100 max-h-[85vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                  <Menu className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-tight text-white">Match Menu</h3>
+                  <p className="text-[11px] text-slate-400">Settings, rules & player profile</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setShowMobileMenu(false);
+                }}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg bg-slate-800 hover:bg-slate-750 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Current Player Profile card */}
+            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-2xl">{playerProfile.avatar || '🔴'}</span>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs font-black text-white truncate">{playerProfile.name || 'Player 1'}</span>
+                  <span className="text-[10px] text-slate-400">Saved in Local Browser Storage</span>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setShowMobileMenu(false);
+                  setShowInitialPlayerModal(true);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-amber-300 border border-slate-700 text-xs font-bold transition-colors cursor-pointer shrink-0"
+              >
+                Edit Name
+              </button>
+            </div>
+
+            {/* Remote Room Info (if online) */}
+            {isRemoteMatch && (
+              <div className="p-3 rounded-2xl bg-cyan-950/40 border border-cyan-800/60 flex items-center justify-between gap-2">
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[10px] uppercase font-black text-cyan-400 tracking-wider">Remote Room Code</span>
+                  <span className="font-mono text-sm font-black text-white tracking-widest">{roomCode}</span>
+                </div>
+                <button
+                  onClick={handleCopyInviteLink}
+                  className="px-3 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500 hover:text-slate-950 text-cyan-300 border border-cyan-500/40 text-xs font-black uppercase transition-all cursor-pointer flex items-center gap-1 shrink-0"
+                >
+                  {copiedLink ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedLink ? 'Copied' : 'Share Link'}</span>
+                </button>
+              </div>
+            )}
+
+            {/* Quick Action Grid */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setShowMobileMenu(false);
+                  setShowSharkThemeModal(true);
+                }}
+                className="p-3 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700 hover:border-cyan-400 text-left flex flex-col gap-1 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5 text-cyan-400">
+                  <Palette className="w-4 h-4" />
+                  <span className="text-xs font-black uppercase">Themes</span>
+                </div>
+                <span className="text-[10px] text-slate-400 truncate">{currentSharkTheme.name}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setShowMobileMenu(false);
+                  setShowRulesModal(true);
+                }}
+                className="p-3 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700 hover:border-amber-400 text-left flex flex-col gap-1 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5 text-amber-400">
+                  <BookOpen className="w-4 h-4" />
+                  <span className="text-xs font-black uppercase">Rules</span>
+                </div>
+                <span className="text-[10px] text-slate-400">How to play</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setShowMobileMenu(false);
+                  setShowSettingsModal(true);
+                }}
+                className="p-3 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700 hover:border-sky-400 text-left flex flex-col gap-1 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5 text-sky-400">
+                  <SettingsIcon className="w-4 h-4" />
+                  <span className="text-xs font-black uppercase">Settings</span>
+                </div>
+                <span className="text-[10px] text-slate-400">Rules & Speed</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setShowMobileMenu(false);
+                  setShowLogDrawer(true);
+                }}
+                className="p-3 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700 hover:border-purple-400 text-left flex flex-col gap-1 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5 text-purple-400">
+                  <History className="w-4 h-4" />
+                  <span className="text-xs font-black uppercase">Game Log</span>
+                </div>
+                <span className="text-[10px] text-slate-400">{moveLogs.length} moves recorded</span>
+              </button>
+
+              <button
+                onClick={toggleSound}
+                className="p-3 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700 text-left flex flex-col gap-1 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5 text-emerald-400">
+                  {rules.soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-rose-400" />}
+                  <span className="text-xs font-black uppercase">Sound</span>
+                </div>
+                <span className="text-[10px] text-slate-400">{rules.soundEnabled ? 'Enabled' : 'Muted'}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setShowMobileMenu(false);
+                  if (isRemoteMatch) {
+                    setShowExitConfirmModal(true);
+                  } else {
+                    setShowNewGameConfirm(true);
+                  }
+                }}
+                className="p-3 rounded-xl bg-slate-800/80 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-600 text-left flex flex-col gap-1 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5 text-rose-400">
+                  {isRemoteMatch ? <LogOut className="w-4 h-4" /> : <RotateCcw className="w-4 h-4" />}
+                  <span className="text-xs font-black uppercase">{isRemoteMatch ? 'Leave Match' : 'Restart'}</span>
+                </div>
+                <span className="text-[10px] text-slate-400">{isRemoteMatch ? 'Exit room' : 'New game'}</span>
+              </button>
+            </div>
+
+            {/* Return to Main Menu Button */}
+            <button
+              onClick={() => {
+                sound.playClick();
+                setShowMobileMenu(false);
+                clearSavedGameState();
+                setSavedGame(null);
+                if (isRemoteMatch) {
+                  setIsRemoteMatch(false);
+                  setRoomCode(null);
+                  setMyPlayerId(null);
+                  syncBrowserUrlWithRoom(null);
+                }
+                setCurrentView('landing');
+              }}
+              className="w-full py-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-colors cursor-pointer border border-slate-700"
+            >
+              <Home className="w-3.5 h-3.5 text-amber-400" />
+              <span>Return to Main Menu</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Move Log Drawer */}
       <MoveLogDrawer
