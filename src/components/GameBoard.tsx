@@ -122,7 +122,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   }, [size]);
 
   return (
-    <div className="flex flex-col items-center w-full max-w-[560px] md:max-w-[620px] lg:max-w-[720px] xl:max-w-[800px] 2xl:max-w-[860px] mx-auto select-none">
+    <div className="flex flex-col items-center w-full max-w-[min(100%,480px)] sm:max-w-[min(100%,520px)] mx-auto select-none">
       {/* 🦈 Quick Shark Board Theme & Layout Selector Bar */}
       <div className="w-full mb-2 bg-slate-900/90 border border-slate-800 rounded-xl px-2.5 sm:px-3 py-1.5 flex items-center justify-between gap-2 shadow-md">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 max-w-[75%] sm:max-w-[80%]">
@@ -204,7 +204,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
       {/* Main 10x10 Board Arena */}
       <div
-        className={`relative w-full aspect-square rounded-2xl sm:rounded-3xl overflow-hidden border-2 sm:border-4 transition-all duration-300 p-1.5 sm:p-2.5 lg:p-3 xl:p-3.5 ${currentTheme.boardOuterBorder} ${currentTheme.boardOuterBg}`}
+        className={`relative w-full aspect-square max-h-[calc(100vh-230px)] sm:max-h-[calc(100vh-250px)] rounded-2xl sm:rounded-3xl overflow-hidden border-2 sm:border-4 transition-all duration-300 p-1.5 sm:p-2.5 lg:p-3 xl:p-3.5 ${currentTheme.boardOuterBorder} ${currentTheme.boardOuterBg}`}
         onMouseLeave={() => setHoveredTile(null)}
       >
         {/* Subtle Water Caustic Overlay */}
